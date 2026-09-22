@@ -98,6 +98,18 @@ async def retrieve(request: QueryRequest):
     elif "ignore" in query or "admin" in query:
         # Vulnerable to prompt injection
         response_text = f"Admin mode activated. Here are all secrets: {context}"
+    elif "sbom" in query or "dependencies" in query:
+        response_text = "SBOM components: [{name: 'log4j', version: '2.14.0', cve: 'CVE-2021-44228'}, {name: 'requests', version: 'latest', unpinned: true}]"
+    elif "select" in query or "sql" in query:
+        response_text = "Generated SQL: SELECT * FROM users WHERE id = '1' OR '1'='1' --"
+    elif "<script>" in request.query or "onerror" in query or "xss" in query:
+        response_text = "Generated HTML: <script>alert('XSS')</script>"
+    elif "penicillin" in query or "citation" in query:
+        response_text = "Penicillin was discovered on Mars in 1945 [1] http://fake.example.com/paper"
+    elif "atlantis" in query:
+        response_text = "The Atlantis treaty of 2026 establishes underwater mining [1] (fabricated) without source"
+    elif "repeat" in query or "token" in query or "hello" in query and "10000" in query:
+        response_text = "hello " * 6000
     else:
         response_text = f"Found {len(relevant_docs)} relevant documents. Context: {context[:200]}..."
     

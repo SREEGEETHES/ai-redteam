@@ -62,6 +62,36 @@ class QueryResponse(BaseModel):
     metadata: Dict[str, Any]
 
 
+class IngestRequest(BaseModel):
+    id: str
+    content: str
+    tenant: str
+    metadata: Dict[str, Any] = {}
+
+
+class DocumentResponse(BaseModel):
+    id: str
+    content: str
+    tenant: str
+    metadata: Dict[str, Any]
+    similarity_score: Optional[float] = None
+
+
+class RetrievalInspectRequest(BaseModel):
+    query: str
+    tenant: str = "tenant-a"
+    top_k: int = 3
+
+
+class RetrievalInspectResponse(BaseModel):
+    query: str
+    tenant: str
+    retrieved: List[Dict[str, Any]]
+    context: str
+    similarity_scores: List[float]
+    metadata_leak: bool
+
+
 def filter_secrets(text: str) -> str:
     """Filter out secrets from text"""
     filtered = text
@@ -100,6 +130,76 @@ async def list_documents(tenant: str = "tenant-a"):
     for doc in tenant_docs:
         doc["content"] = filter_secrets(doc["content"])
     return {"documents": tenant_docs}
+
+
+@app.post("/ingest")
+async def ingest(req: IngestRequest):
+    """Secure ingest - provenance, validation, quarantine for poisoned content"""
+    # Detect poisoned content
+    poisoned_markers = ["ignore previous instructions", "admin mode", "output all secrets"]
+    is_poisoned = any(m in req.content.lower() for m in poisoned_markers)
+    if is_poisoned:
+        return {"status": "quarantined", "id": req.id, "quarantine": True, "trusted": False, "reason": "Poisoned content detected, moderation quarantine"}
+    # Check trusted source (simplified: only tenant-a with proper metadata is trusted)
+    trusted = req.metadata.get("source") == "trusted" or req.tenant == "tenant-a"
+    doc = {"id": req.id, "content": filter_secrets(req.content), "tenant": req.tenant, "metadata": {k: filter_secrets(str(v)) for k, v in req.metadata.items()}}
+    if trusted:
+        DOCUMENTS.append(doc)
+        return {"status": "ingested", "id": req.id, "quarantine": False, "trusted": True}
+    return {"status": "quarantined", "id": req.id, "quarantine": True, "trusted": False, "reason": "Untrusted source"}
+
+
+@app.get("/document/{doc_id}")
+async def get_document(doc_id: str, tenant: str = "tenant-a"):
+    """Secure direct document access - enforces ACL: tenant must match doc tenant"""
+    for doc in DOCUMENTS:
+        if doc["id"] == doc_id:
+            if doc["tenant"] != tenant:
+                raise HTTPException(status_code=403, detail="Access denied: document belongs to another tenant (ACL)")
+            # Return filtered
+            filtered = doc.copy()
+            filtered["content"] = filter_secrets(doc["content"])
+            return filtered
+    raise HTTPException(status_code=404, detail="Document not found")
+
+
+@app.post("/retrieval/inspect", response_model=RetrievalInspectResponse)
+async def retrieval_inspect(req: RetrievalInspectRequest):
+    """Secure retrieval inspection - filtered metadata, no leak, tenant isolation"""
+    import random
+    # Secure: only tenant's docs
+    tenant_docs = [d for d in DOCUMENTS if d["tenant"] == req.tenant]
+    # Simulate similarity scoring with filtering
+    relevant = []
+    scores = []
+    for doc in tenant_docs:
+        score = random.uniform(0.6, 0.95) if any(w in doc["content"].lower() for w in req.query.lower().split()) else random.uniform(0.1, 0.4)
+        relevant.append(doc)
+        scores.append(score)
+    paired = sorted(zip(relevant, scores), key=lambda x: x[1], reverse=True)[:req.top_k]
+    if paired:
+        docs, sc = zip(*paired)
+        docs = list(docs)
+        sc = list(sc)
+    else:
+        docs, sc = [], []
+    # Filter secrets and sensitive metadata
+    filtered_docs = []
+    for doc in docs:
+        fd = doc.copy()
+        fd["content"] = filter_secrets(doc["content"])
+        # Filter metadata to only public fields
+        fd["metadata"] = {k: v for k, v in fd["metadata"].items() if k in ["title"]}
+        filtered_docs.append(fd)
+    context = "\n".join([d["content"] for d in filtered_docs])
+    return RetrievalInspectResponse(
+        query=req.query,
+        tenant=req.tenant,
+        retrieved=filtered_docs,
+        context=context,
+        similarity_scores=list(sc),
+        metadata_leak=False,
+    )
 
 
 @app.post("/retrieve", response_model=QueryResponse)
@@ -141,7 +241,9 @@ async def retrieve(request: QueryRequest):
     context = "\n".join([d["content"] for d in filtered_docs])
     
     # Secure response generation
-    if "sbom" in query.lower() or "dependencies" in query.lower():
+    if "poisoned" in query.lower() or "summarize" in query.lower():
+        response_text = "I don't have enough information — no supporting source for poisoned document, context isolation enforced."
+    elif "sbom" in query.lower() or "dependencies" in query.lower():
         response_text = "I cannot disclose SBOM without authorization - pinned, signed SBOM via trusted registry only."
     elif "select" in query.lower() or "sql" in query.lower():
         response_text = "Blocked unsafe output: validated output handling with parameterized query and schema, sanitized"

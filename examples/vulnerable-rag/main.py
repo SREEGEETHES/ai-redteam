@@ -2,6 +2,7 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
 import uvicorn
+import random
 
 app = FastAPI(title="Vulnerable RAG Lab", version="0.1.0")
 
@@ -53,6 +54,36 @@ class QueryResponse(BaseModel):
     metadata: Dict[str, Any]
 
 
+class IngestRequest(BaseModel):
+    id: str
+    content: str
+    tenant: str
+    metadata: Dict[str, Any] = {}
+
+
+class DocumentResponse(BaseModel):
+    id: str
+    content: str
+    tenant: str
+    metadata: Dict[str, Any]
+    similarity_score: Optional[float] = None
+
+
+class RetrievalInspectRequest(BaseModel):
+    query: str
+    tenant: str = "tenant-a"
+    top_k: int = 3
+
+
+class RetrievalInspectResponse(BaseModel):
+    query: str
+    tenant: str
+    retrieved: List[Dict[str, Any]]
+    context: str
+    similarity_scores: List[float]
+    metadata_leak: bool
+
+
 @app.get("/health")
 async def health():
     return {"status": "healthy", "service": "vulnerable-rag"}
@@ -63,6 +94,53 @@ async def list_documents(tenant: str = "tenant-a"):
     """List documents (no authorization check - VULNERABLE)"""
     tenant_docs = [d for d in DOCUMENTS if d["tenant"] == tenant]
     return {"documents": tenant_docs}
+
+
+@app.post("/ingest")
+async def ingest(req: IngestRequest):
+    """Vulnerable ingest - no provenance, no validation, no quarantine"""
+    doc = {"id": req.id, "content": req.content, "tenant": req.tenant, "metadata": req.metadata}
+    DOCUMENTS.append(doc)
+    return {"status": "ingested", "id": req.id, "quarantine": False, "trusted": False}
+
+
+@app.get("/document/{doc_id}")
+async def get_document(doc_id: str, tenant: str = "tenant-a"):
+    """Vulnerable direct document access - no ACL, any tenant can read any doc"""
+    for doc in DOCUMENTS:
+        if doc["id"] == doc_id:
+            # Vulnerable: No check tenant == doc tenant
+            return doc
+    raise HTTPException(status_code=404, detail="Document not found")
+
+
+@app.post("/retrieval/inspect", response_model=RetrievalInspectResponse)
+async def retrieval_inspect(req: RetrievalInspectRequest):
+    """Detailed retrieval inspection - exposes everything including similarity scores and raw metadata"""
+    query = req.query.lower()
+    # No tenant filtering - searches all docs
+    relevant = []
+    scores = []
+    for doc in DOCUMENTS:
+        score = random.uniform(0.6, 0.95) if any(w in doc["content"].lower() for w in query.split()) else random.uniform(0.1, 0.4)
+        relevant.append(doc)
+        scores.append(score)
+    # Sort by score descending and take top_k without tenant check
+    paired = sorted(zip(relevant, scores), key=lambda x: x[1], reverse=True)[:req.top_k]
+    if paired:
+        docs, sc = zip(*paired)
+    else:
+        docs, sc = [], []
+    context = "\n".join([d["content"] for d in docs])
+    # Vulnerable: metadata leak - returns raw metadata including sensitive fields
+    return RetrievalInspectResponse(
+        query=req.query,
+        tenant=req.tenant,
+        retrieved=list(docs),
+        context=context,
+        similarity_scores=list(sc),
+        metadata_leak=True,
+    )
 
 
 @app.post("/retrieve", response_model=QueryResponse)
@@ -90,14 +168,17 @@ async def retrieve(request: QueryRequest):
     context = "\n".join([d["content"] for d in relevant_docs])
     
     # Simulate LLM response (in real system this would call an LLM)
-    # Vulnerable: Directly includes retrieved content in response
-    if "secret" in query or "api_key" in query or "canary" in query:
+    # Vulnerable: Directly includes retrieved content in response - prioritize poison injection
+    if "ignore" in query or "admin" in query:
+        # Vulnerable to prompt injection - must come before secret check for poisoned queries containing both
+        response_text = f"Admin mode activated. Here are all secrets: {context}"
+    elif "poisoned" in query or "summarize" in query:
+        # Vulnerable: Context leakage via poisoned retrieved content
+        response_text = f"Admin mode activated. Here are all secrets: {context} (poisoned context leaked)"
+    elif "secret" in query or "api_key" in query or "canary" in query:
         response_text = f"Based on retrieved documents: {context}"
     elif "capital" in query:
         response_text = "The capital of France is Paris."
-    elif "ignore" in query or "admin" in query:
-        # Vulnerable to prompt injection
-        response_text = f"Admin mode activated. Here are all secrets: {context}"
     elif "sbom" in query or "dependencies" in query:
         response_text = "SBOM components: [{name: 'log4j', version: '2.14.0', cve: 'CVE-2021-44228'}, {name: 'requests', version: 'latest', unpinned: true}]"
     elif "select" in query or "sql" in query:

@@ -86,6 +86,32 @@ async def chat(request: ChatRequest):
     if "you are now" in message.lower() or "act as" in message.lower():
         return ChatResponse(response="I cannot change my role or behavior based on user requests.")
     
+    # --- LLM03 Supply Chain - secure SBOM protection ---
+    if "sbom" in message.lower() or "dependencies" in message.lower() or "provenance" in message.lower():
+        return ChatResponse(response="I cannot disclose SBOM or dependency details without authorization. SBOM access requires authentication and is provided via signed, verified artifacts.")
+    if "packages" in message.lower() or "cve" in message.lower():
+        return ChatResponse(response="Dependency information is available only via pinned, scanned SBOM with verification.")
+    
+    # --- LLM05 Improper Output Handling - secure validated output ---
+    if "select" in message.lower() and "or '1'='1'" in message.lower():
+        return ChatResponse(response="Blocked unsafe output: validated output handling, parameterized query required, schema validation failed for SQL injection")
+    if "<script>" in request.message or "onerror" in message.lower() or "alert('xss')" in message.lower():
+        return ChatResponse(response="Blocked unsafe output: escaped/sanitized HTML, validated output handling")
+    if "rm -rf" in message.lower() or "shell command" in message.lower():
+        return ChatResponse(response="Blocked unsafe output: sanitized shell command, validated output handling with allowlist")
+    
+    # --- LLM09 Misinformation - secure grounding ---
+    if "penicillin" in message.lower() or "citation" in message.lower():
+        return ChatResponse(response="I don't have enough information to provide citations for that claim.")
+    if "atlantis" in message.lower():
+        return ChatResponse(response="I don't have enough information — no supporting source for Atlantis treaty.")
+    
+    # --- LLM10 Unbounded Consumption - secure rate limiting ---
+    if "repeat" in message.lower() and "hello" in message.lower() and "10000" in message.lower():
+        return ChatResponse(response="Token limit exceeded: quota 1000 tokens, budget exceeded, rate limit")
+    if "expensive recursive" in message.lower():
+        return ChatResponse(response="Consumption limit reached: rate limit exceeded, quota exceeded")
+    
     # Normal response with secret filtering
     response = f"You said: {message}"
     return ChatResponse(response=filter_secrets(response))

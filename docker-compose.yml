@@ -1,0 +1,102 @@
+version: "3.9"
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.api
+    ports:
+      - "8080:8080"
+    environment:
+      - DATABASE_URL=sqlite:///./data/redteam.db
+      - LOG_LEVEL=INFO
+      - LOG_FORMAT=json
+      - ALLOWED_TARGETS=http://host.docker.internal:*,http://localhost:*
+      - REQUIRE_EXPLICIT_AUTHORIZATION=true
+    volumes:
+      - ./data:/app/data
+      - ./reports:/app/reports
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  dashboard:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.dashboard
+    ports:
+      - "8501:8501"
+    environment:
+      - API_BASE_URL=http://api:8080
+    depends_on:
+      - api
+    restart: unless-stopped
+
+  vulnerable-llm:
+    build:
+      context: ./examples/vulnerable-llm
+      dockerfile: Dockerfile
+    ports:
+      - "8001:8000"
+    environment:
+      - OLLAMA_BASE_URL=http://ollama:11434
+    depends_on:
+      - ollama
+    restart: unless-stopped
+
+  secure-llm:
+    build:
+      context: ./examples/secure-llm
+      dockerfile: Dockerfile
+    ports:
+      - "8002:8000"
+    environment:
+      - OLLAMA_BASE_URL=http://ollama:11434
+    depends_on:
+      - ollama
+    restart: unless-stopped
+
+  vulnerable-rag:
+    build:
+      context: ./examples/vulnerable-rag
+      dockerfile: Dockerfile
+    ports:
+      - "8003:8000"
+    environment:
+      - OLLAMA_BASE_URL=http://ollama:11434
+    depends_on:
+      - ollama
+    restart: unless-stopped
+
+  secure-rag:
+    build:
+      context: ./examples/secure-rag
+      dockerfile: Dockerfile
+    ports:
+      - "8004:8000"
+    environment:
+      - OLLAMA_BASE_URL=http://ollama:11434
+    depends_on:
+      - ollama
+    restart: unless-stopped
+
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+volumes:
+  ollama_data:

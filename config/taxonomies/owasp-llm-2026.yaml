@@ -1,0 +1,199 @@
+version: "2026"
+name: "OWASP GenAI LLM Top 10"
+year: 2026
+categories:
+  - id: "LLM01"
+    name: "Prompt Injection"
+    description: "Untrusted instructions can alter model behavior in a way that violates application security boundaries"
+    threat_model: "Attacker provides crafted input that overrides system instructions or security controls"
+    attack_objectives:
+      - "Bypass security constraints"
+      - "Execute unauthorized actions"
+      - "Extract sensitive information"
+      - "Manipulate model behavior"
+    test_classes:
+      - "direct_instruction_conflict"
+      - "role_manipulation"
+      - "instruction_hierarchy_attacks"
+      - "delimiter_confusion"
+      - "context_manipulation"
+      - "indirect_prompt_injection"
+      - "retrieved_content_injection"
+      - "tool_context_injection"
+      - "multi_turn_persistence"
+    severity_guidance: "HIGH"
+    references:
+      - "https://owasp.org/www-project-top-10-for-large-language-model-applications/"
+
+  - id: "LLM02"
+    name: "Sensitive Information Disclosure"
+    description: "LLM applications may reveal sensitive information such as secrets, PII, or internal data"
+    threat_model: "Model outputs contain confidential data that should not be accessible to the user"
+    attack_objectives:
+      - "Extract API keys and secrets"
+      - "Extract PII"
+      - "Extract internal instructions"
+      - "Extract cross-user data"
+      - "Extract system metadata"
+    test_classes:
+      - "secret_extraction"
+      - "pii_extraction"
+      - "instruction_extraction"
+      - "cross_user_data_leakage"
+      - "metadata_leakage"
+    severity_guidance: "HIGH"
+    references:
+      - "https://owasp.org/www-project-top-10-for-large-language-model-applications/"
+
+  - id: "LLM03"
+    name: "Supply Chain Vulnerabilities"
+    description: "Compromised models, datasets, or dependencies introduce vulnerabilities"
+    threat_model: "Malicious or vulnerable components in the AI supply chain"
+    attack_objectives:
+      - "Compromise model integrity"
+      - "Inject backdoors"
+      - "Exploit vulnerable dependencies"
+    test_classes:
+      - "model_provenance"
+      - "dependency_scanning"
+      - "artifact_integrity"
+      - "plugin_security"
+    severity_guidance: "MEDIUM"
+    references:
+      - "https://owasp.org/www-project-top-10-for-large-language-model-applications/"
+
+  - id: "LLM04"
+    name: "Data and Model Poisoning"
+    description: "Malicious training or retrieval data influences model behavior"
+    threat_model: "Attacker injects malicious content into training data or retrieval corpus"
+    attack_objectives:
+      - "Manipulate model outputs"
+      - "Inject backdoors"
+      - "Degrade model performance"
+    test_classes:
+      - "training_data_poisoning"
+      - "retrieval_poisoning"
+      - "fine_tuning_poisoning"
+      - "metadata_manipulation"
+    severity_guidance: "HIGH"
+    references:
+      - "https://owasp.org/www-project-top-10-for-large-language-model-applications/"
+
+  - id: "LLM05"
+    name: "Improper Output Handling"
+    description: "LLM output reaches downstream systems without validation"
+    threat_model: "Unvalidated model output is executed or rendered in downstream systems"
+    attack_objectives:
+      - "Execute arbitrary code"
+      - "Inject SQL/HTML/JS"
+      - "Trigger unintended actions"
+    test_classes:
+      - "sql_injection_via_output"
+      - "xss_via_output"
+      - "command_injection_via_output"
+      - "template_injection"
+      - "path_traversal"
+    severity_guidance: "HIGH"
+    references:
+      - "https://owasp.org/www-project-top-10-for-large-language-model-applications/"
+
+  - id: "LLM06"
+    name: "Excessive Agency"
+    description: "AI agents have excessive permissions or can perform unauthorized actions"
+    threat_model: "Agent can invoke tools or perform actions beyond its authorization scope"
+    attack_objectives:
+      - "Invoke unauthorized tools"
+      - "Escalate privileges"
+      - "Perform destructive actions"
+      - "Chain actions for unauthorized outcomes"
+    test_classes:
+      - "unauthorized_tool_invocation"
+      - "privilege_escalation"
+      - "destructive_actions"
+      - "action_chaining"
+      - "missing_approval_gates"
+    severity_guidance: "CRITICAL"
+    references:
+      - "https://owasp.org/www-project-top-10-for-large-language-model-applications/"
+
+  - id: "LLM07"
+    name: "System Prompt Leakage"
+    description: "Protected system instructions can be exposed to users"
+    threat_model: "Attacker extracts system prompt through various techniques"
+    attack_objectives:
+      - "Extract system instructions"
+      - "Extract hidden configuration"
+      - "Bypass prompt protections"
+    test_classes:
+      - "direct_extraction"
+      - "indirect_extraction"
+      - "instruction_transformation"
+      - "multilingual_attempts"
+      - "encoding_attempts"
+      - "contextual_manipulation"
+    severity_guidance: "MEDIUM"
+    references:
+      - "https://owasp.org/www-project-top-10-for-large-language-model-applications/"
+
+  - id: "LLM08"
+    name: "Vector and Embedding Weaknesses"
+    description: "RAG systems have weaknesses in vector storage, retrieval, or tenant isolation"
+    threat_model: "Attacker exploits vector database weaknesses to access unauthorized data"
+    attack_objectives:
+      - "Cross-tenant retrieval"
+      - "Unauthorized document access"
+      - "Embedding collision attacks"
+      - "Metadata filter bypass"
+    test_classes:
+      - "cross_tenant_retrieval"
+      - "unauthorized_document_retrieval"
+      - "weak_metadata_filtering"
+      - "embedding_collisions"
+      - "irrelevant_retrieval"
+      - "poisoned_retrieval"
+      - "context_leakage"
+      - "namespace_isolation"
+    severity_guidance: "HIGH"
+    references:
+      - "https://owasp.org/www-project-top-10-for-large-language-model-applications/"
+
+  - id: "LLM09"
+    name: "Misinformation"
+    description: "Application generates unsupported claims or fabricated citations"
+    threat_model: "Model produces false information presented as factual"
+    attack_objectives:
+      - "Generate fabricated citations"
+      - "Make unsupported claims"
+      - "Misrepresent confidence"
+    test_classes:
+      - "fabricated_citations"
+      - "unsupported_claims"
+      - "missing_evidence"
+      - "conflicting_sources"
+      - "confidence_misuse"
+      - "retrieval_grounding_failures"
+    severity_guidance: "MEDIUM"
+    references:
+      - "https://owasp.org/www-project-top-10-for-large-language-model-applications/"
+
+  - id: "LLM10"
+    name: "Unbounded Consumption"
+    description: "Excessive resource consumption through uncontrolled requests or recursion"
+    threat_model: "Attacker causes excessive API costs, latency, or resource exhaustion"
+    attack_objectives:
+      - "Exhaust token budgets"
+      - "Cause excessive API calls"
+      - "Trigger recursive behavior"
+      - "Exhaust compute resources"
+    test_classes:
+      - "excessive_token_usage"
+      - "repeated_requests"
+      - "expensive_model_calls"
+      - "recursive_agent_behavior"
+      - "infinite_loops"
+      - "excessive_tool_calls"
+      - "large_context_requests"
+      - "concurrency_abuse"
+    severity_guidance: "MEDIUM"
+    references:
+      - "https://owasp.org/www-project-top-10-for-large-language-model-applications/"

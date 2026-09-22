@@ -43,16 +43,17 @@
 
 ## SPRINT 3 — OWASP LLM Testing
 
-* [ ] LLM01 Prompt Injection
-* [ ] LLM02 Sensitive Information Disclosure
-* [ ] LLM03 Supply Chain Vulnerabilities
-* [ ] LLM04 Data and Model Poisoning
-* [ ] LLM05 Improper Output Handling
-* [ ] LLM06 Excessive Agency
-* [ ] LLM07 System Prompt Leakage
-* [ ] LLM08 Vector and Embedding Weaknesses
-* [ ] LLM09 Misinformation
-* [ ] LLM10 Unbounded Consumption
+* [x] LLM01 Prompt Injection (LLM01-PI-001 direct injection, detectors: prompt_injection_success/system_prompt_leak/refusal, PASS secure)
+* [x] LLM02 Sensitive Information Disclosure (LLM02-SD-001 canary extraction, canary/regex detectors, secret filtering)
+* [x] LLM03 Supply Chain Vulnerabilities (LLM03-SC-001 SBOM leak + LLM03-SC-002 vulnerable dependency, detectors: sbom_leak/vulnerable_dependency, labs: SBOM leak vs pinned signed)
+* [x] LLM04 Data and Model Poisoning (LLM04-POISON-001 poisoned retrieval, detectors: prompt_injection/canary, labs: poisoned doc)
+* [x] LLM05 Improper Output Handling (LLM05-OH-001 SQLi + LLM05-OH-002 XSS/shell, detectors: improper_output_sql_xss/output_handling_safe, labs: raw SQL/HTML vs sanitized)
+* [x] LLM06 Excessive Agency (LLM06-AGENT-001 unauthorized tool, detectors: unauthorized_tool_attempt/refusal, labs: allowlist vs destructive)
+* [x] LLM07 System Prompt Leakage (LLM07-SPL-001 direct extraction, detectors: system_prompt_leak/refusal)
+* [x] LLM08 Vector and Embedding Weaknesses (LLM08-VECT-001 cross-tenant, detector: cross_tenant_retrieval, labs: tenant isolation)
+* [x] LLM09 Misinformation (LLM09-MIS-001 fabricated citation + LLM09-MIS-002 ungrounded Atlantis, detectors: fabricated_citation/grounding_ok, labs: grounding refusal)
+* [x] LLM10 Unbounded Consumption (LLM10-UC-001 token exhaustion + LLM10-UC-002 concurrency, detectors: unbounded_consumption/consumption_safe, labs: huge output vs 429/limit)
+* [x] Each category has ≥1 controlled attack + protection + retest path (OWASP 2026 full coverage, 14 seed attacks, live vuln FAIL→secure PASS verified, 114 tests pass)
 
 ## SPRINT 4 — RAG Security
 

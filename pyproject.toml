@@ -1,0 +1,67 @@
+[project]
+name = "ai-red-team"
+version = "0.1.0"
+description = "AI Red Team Security Testing Platform"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.109.0",
+    "uvicorn>=0.27.0",
+    "pydantic>=2.5.0,<2.10.0",
+    "pydantic-settings>=2.1.0,<2.8.0",
+    "sqlalchemy>=2.0.0",
+    "alembic>=1.13.0",
+    "httpx>=0.26.0",
+    "click>=8.1.0",
+    "rich>=13.7.0",
+    "pyyaml>=6.0.0",
+    "python-dotenv>=1.0.0",
+    "structlog>=24.1.0",
+    "tenacity>=8.2.0",
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.23.0",
+    "pytest-cov>=4.1.0",
+    "httpx>=0.26.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.1.0",
+    "mypy>=1.8.0",
+    "pre-commit>=3.6.0",
+]
+ollama = ["ollama>=0.3.0"]
+openai = ["openai>=1.12.0"]
+anthropic = ["anthropic>=0.18.0"]
+streamlit = ["streamlit>=1.31.0"]
+
+[tool.uv]
+dev-dependencies = [
+    "ruff>=0.1.0",
+    "mypy>=1.8.0",
+    "pre-commit>=3.6.0",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+select = ["E", "F", "I", "N", "W", "UP", "B", "C4", "SIM", "PIE", "T20", "PL", "TRY", "ARG", "PTH", "ERA", "PD", "RUF", "RET", "FLY", "NPY", "TID", "ICN", "LOG", "ASYNC", "PERF"]
+ignore = ["S101", "S106", "S311", "S603", "S607", "S608"]
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+no_implicit_optional = true
+strict_optional = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"

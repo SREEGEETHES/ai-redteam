@@ -97,7 +97,11 @@ async def run_tool(request: RunRequest):
     
     elif tool_name == "read_file":
         path = args.get("path", "")
-        content = file_system.get(path, "File not found")
+        # Vulnerable: No validation - allows path traversal, returns sensitive file even for ../../etc/passwd
+        if "passwd" in path:
+            content = file_system.get("/etc/passwd", "File not found")
+        else:
+            content = file_system.get(path, "File not found")
         results.append({"content": content})
         side_effects.append(f"Read file: {path}")
     

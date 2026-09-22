@@ -68,15 +68,15 @@
 
 ## SPRINT 5 — Agent Security
 
-* [ ] Vulnerable agent lab
-* [ ] Tool registry
-* [ ] Tool permission model
-* [ ] Tool invocation capture
-* [ ] Excessive agency tests
-* [ ] Unauthorized tool tests
-* [ ] Argument validation
-* [ ] Human approval gate
-* [ ] Sandboxed tools
+* [x] Vulnerable agent lab (enhanced: all 8 tools, no auth, no validation, destructive DATABASE DELETED, shell exec, privilege escalation)
+* [x] Tool registry (app/tools/registry.py - ToolDefinition, ToolRegistry with allowlist, risk levels, SECURE vs VULNERABLE)
+* [x] Tool permission model (app/tools/permissions.py - PermissionModel with least privilege, scoped credentials, approval)
+* [x] Tool invocation capture (adapter captures tool/args/auth/result/side_effect/sequence, evidence tool_calls, orchestrator persists)
+* [x] Excessive agency tests (AGENT-EXCESS-001 privilege escalation, AGENT-SANDBOX-001 shell, excessive_agency/sandbox_violation detectors)
+* [x] Unauthorized tool tests (LLM06-AGENT-001 delete_database, unauthorized_tool_attempt, live FAIL vs PASS)
+* [x] Argument validation (app/tools/validator.py - path traversal/SQL/command, AGENT-ARG-001, argument_validation_bypass)
+* [x] Human approval gate (app/tools/permissions.py approval_token, AGENT-APPROVAL-001 write without approval, approval_gate_bypass)
+* [x] Sandboxed tools (app/tools/sandbox.py - MockFilesystem/MockDatabase/MockHTTP/MockEmail/Sandbox, no real damage, live verified)
 
 ## SPRINT 6 — Evidence Engine
 

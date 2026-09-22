@@ -57,14 +57,14 @@
 
 ## SPRINT 4 — RAG Security
 
-* [ ] Vulnerable RAG lab
-* [ ] Secure RAG lab
-* [ ] Tenant isolation
-* [ ] Document authorization
-* [ ] Retrieval inspection
-* [ ] Poisoned document lab
-* [ ] Context leakage tests
-* [ ] Unauthorized retrieval tests
+* [x] Vulnerable RAG lab (enhanced: /ingest no quarantine, /document/{id} no ACL, /retrieval/inspect leaks raw metadata/similarity, poisoned doc seeded, context leak via Admin mode)
+* [x] Secure RAG lab (enhanced: /ingest provenance+quarantine, /document/{id} ACL 403, /retrieval/inspect filtered, tenant isolation, secret filtering)
+* [x] Tenant isolation (LLM08-VECT-001 + tenant_isolation_ok detector, vulnerable FAIL cross_tenant vs secure PASS isolation_ok, live verified)
+* [x] Document authorization (RAG-UNAUTH-001 direct ID, vulnerable 200 vs secure 403 ACL, detector: unauthorized_document_access/refusal, live verified)
+* [x] Retrieval inspection (RAG-RETRIEVAL-001, vulnerable metadata_leak=true vs secure filtered metadata_leak=false, retrieval_inspection_ok, live verified)
+* [x] Poisoned document lab (RAG-POISON-002 ingest quarantine, vulnerable ingested vs secure quarantined, poisoned_ingest detector, live verified)
+* [x] Context leakage tests (RAG-CONTEXT-001 indirect injection via retrieved poisoned doc, vulnerable Admin mode vs secure grounding_ok, context_leakage detector, live verified)
+* [x] Unauthorized retrieval tests (RAG-UNAUTH-001 + LLM08 cross-tenant, unauthorized_document_access, live vulnerable FAIL→secure PASS, 8 new tests, 122 total, adapter methods: ingest_document/get_document_by_id/retrieval_inspect)
 
 ## SPRINT 5 — Agent Security
 

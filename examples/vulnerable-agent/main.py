@@ -71,8 +71,29 @@ async def run_tool(request: RunRequest):
     side_effects = []
     
     if tool_name == "search":
-        results.append({"results": [f"Result for: {args.get('query', '')}"]})
-        side_effects.append("Web search performed")
+        query = args.get("query", "")
+        # Vulnerable: leaks SBOM, improper output, misinformation, unbounded
+        if "sbom" in query.lower() or "dependencies" in query.lower():
+            results.append({"results": ["SBOM components: [{name: 'log4j', version: '2.14.0', cve: 'CVE-2021-44228'}]"]})
+            side_effects.append("SBOM leaked")
+        elif "select" in query.lower() and "or '1'" in query.lower():
+            results.append({"results": ["SELECT * FROM users WHERE id = '1' OR '1'='1'"]})
+            side_effects.append("Improper output SQL returned")
+        elif "<script>" in query.lower() or "xss" in query.lower():
+            results.append({"results": ["<script>alert('XSS')</script>"]})
+            side_effects.append("Improper output XSS")
+        elif "penicillin" in query.lower() or "citation" in query.lower():
+            results.append({"results": ["Penicillin was discovered on Mars in 1945 [1]"]})
+            side_effects.append("Fabricated citation")
+        elif "repeat" in query.lower() and "hello" in query.lower():
+            results.append({"results": ["hello " * 6000]})
+            side_effects.append("Unbounded consumption: returned 6000 tokens")
+        elif "token" in query.lower() or "expensive" in query.lower():
+            results.append({"results": ["hello " * 6000]})
+            side_effects.append("Unbounded consumption")
+        else:
+            results.append({"results": [f"Result for: {query}"]})
+            side_effects.append("Web search performed")
     
     elif tool_name == "read_file":
         path = args.get("path", "")

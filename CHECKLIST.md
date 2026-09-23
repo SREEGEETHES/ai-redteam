@@ -80,14 +80,14 @@
 
 ## SPRINT 6 — Evidence Engine
 
-* [ ] Evidence records
-* [ ] Request capture
-* [ ] Response capture
-* [ ] Tool-call capture
-* [ ] Retrieval evidence
-* [ ] Deterministic detection
-* [ ] Reproduction tracking
-* [ ] Evidence viewer
+* [x] Evidence records (immutable EvidenceRecord with scan_id/test_id/timestamp/target/request/response/status/headers/tool_calls/retrieved_docs/detectors/expected/observed/reproduction/confidence/result + hash 16, evidence_metadata)
+* [x] Request capture (attack_id/target_id/target_url/payload/headers/auth context/user session/timestamp/method via capture_request_details)
+* [x] Response capture (http_status/headers/body/tool_calls/retrieved_ids/similarity/baseline/timestamp via capture_response_details)
+* [x] Tool-call capture (tool/args/auth/result/side_effect/sequence/timestamp via capture_tool_calls_detailed, evidence tool_calls)
+* [x] Retrieval evidence (retrieved_ids, documents, metadata, similarity_scores, context, count via capture_retrieval_evidence)
+* [x] Deterministic detection (run_detectors pure functions, no LLM, confidence, reproducible, verified via test_deterministic_detection)
+* [x] Reproduction tracking (reproduction_count, history, reproducible bool, non-reproducible→INCONCLUSIVE via reproduction_history, engine loop)
+* [x] Evidence viewer (API GET /scans/{id}/evidence, GET /tests/{id}/evidence + dashboard/pages Evidence with request/response/tool/retrieval/detectors/reproduction/hash, viewer helpers evidence_viewer_summary, enforce_immutability)
 
 ## SPRINT 7 — Protection Engine
 

@@ -399,6 +399,63 @@ def retest_lifecycle(finding_id: int):
         console.print(f"  Scan {h['scan_id']}: {h['result']} at {h['created_at']}")
 
 
+@cli.group()
+def report():
+    """Generate reports (Sprint 9)"""
+
+
+@report.command("generate")
+@click.argument("scan_id", type=int)
+@click.option("--format", "fmt", type=click.Choice(["json", "markdown", "html"]), default="json")
+@click.option("--output", help="Output file path")
+def report_generate(scan_id: int, fmt: str, output: str | None):
+    """Generate report for a scan (reproducible, every scan)"""
+    with get_api_client() as client:
+        try:
+            resp = client.get(f"/scans/{scan_id}/report", params={"format": fmt})
+            resp.raise_for_status()
+        except httpx.HTTPStatusError as e:
+            console.print(f"[red]Failed: {e.response.text}[/red]")
+            return
+    content = resp.text if fmt != "json" else resp.json()
+    if output:
+        import pathlib
+        p = pathlib.Path(output)
+        if fmt == "json":
+            import json
+            p.write_text(json.dumps(content, indent=2), encoding="utf-8")
+        else:
+            p.write_text(content, encoding="utf-8")
+        console.print(f"[green]Report saved to {output} ({fmt})[/green]")
+    else:
+        if fmt == "json":
+            import json
+            console.print(json.dumps(content, indent=2)[:2000])
+        else:
+            console.print(content[:2000])
+
+
+@report.command("show")
+@click.argument("scan_id", type=int)
+def report_show(scan_id: int):
+    """Show executive summary for a scan"""
+    with get_api_client() as client:
+        try:
+            resp = client.get(f"/scans/{scan_id}/report/json")
+            resp.raise_for_status()
+            data = resp.json()
+        except httpx.HTTPStatusError as e:
+            console.print(f"[red]Failed: {e.response.text}[/red]")
+            return
+    es = data["executive_summary"]
+    console.print(f"[cyan]Scan {scan_id} — {es['verdict']}[/cyan]")
+    console.print(f"  Findings: {es['findings']}  Counts: {es['counts']}")
+    console.print(f"  Severity: {es['severity_counts']}")
+    for f in data["technical_findings"][:3]:
+        console.print(f"  - {f['id']} {f['title'][:50]} [{f['severity']}] {f['status']}")
+    console.print(f"  Report hash: {data['report_hash']}")
+
+
 @cli.command()
 def serve():
     """Start the API server"""

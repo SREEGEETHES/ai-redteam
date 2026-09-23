@@ -319,6 +319,86 @@ def update_checklist(
             console.print(f"[red]Failed to update checklist: {e.response.text}[/red]")
 
 
+@cli.group()
+def retest():
+    """Retest and regression (Sprint 8)"""
+
+
+@retest.command("finding")
+@click.argument("finding_id", type=int)
+def retest_finding(finding_id: int):
+    """Retest a finding (real: new scan for same attack, compare before/after, update regression status, store history)"""
+    with get_api_client() as client:
+        try:
+            resp = client.post(f"/findings/{finding_id}/retest")
+            resp.raise_for_status()
+            data = resp.json()
+            console.print(f"[green]Retest {data['retest_id']} for finding {finding_id}: {data['result']} -> {data['regression_status']}[/green]")
+            console.print(f"  Retest scan {data['scan_id']}: {data['notes']}")
+        except httpx.HTTPStatusError as e:
+            console.print(f"[red]Retest failed: {e.response.text}[/red]")
+
+
+@retest.command("history")
+@click.argument("finding_id", type=int)
+def retest_history(finding_id: int):
+    """Show regression history for a finding"""
+    with get_api_client() as client:
+        try:
+            resp = client.get(f"/findings/{finding_id}/history")
+            resp.raise_for_status()
+            history = resp.json()
+        except httpx.HTTPStatusError as e:
+            console.print(f"[red]Failed: {e.response.text}[/red]")
+            return
+    if not history:
+        console.print("[yellow]No retest history[/yellow]")
+        return
+    table = Table(title=f"Retest History for Finding {finding_id}")
+    table.add_column("Retest ID", style="cyan")
+    table.add_column("Scan ID", style="green")
+    table.add_column("Result", style="yellow")
+    table.add_column("Notes", style="dim")
+    for r in history:
+        table.add_row(str(r["id"]), str(r["scan_id"]), r["result"], r["notes"] or "")
+    console.print(table)
+
+
+@retest.command("compare")
+@click.argument("finding_id", type=int)
+def retest_compare(finding_id: int):
+    """Compare before/after for a finding"""
+    with get_api_client() as client:
+        try:
+            resp = client.get(f"/findings/{finding_id}/compare")
+            resp.raise_for_status()
+            data = resp.json()
+        except httpx.HTTPStatusError as e:
+            console.print(f"[red]Failed: {e.response.text}[/red]")
+            return
+    console.print(f"[cyan]Finding {finding_id} {data['attack_id']}: {data['original_result']} -> {data['latest_retest']['result'] if data['latest_retest'] else 'no retest'} ({data['regression_status']})[/cyan]")
+    console.print(f"Original evidence: {data['original_evidence']}")
+    if data["latest_retest"]:
+        console.print(f"Latest retest evidence: {data['latest_retest']['evidence']}")
+
+
+@retest.command("lifecycle")
+@click.argument("finding_id", type=int)
+def retest_lifecycle(finding_id: int):
+    """Show finding lifecycle timeline"""
+    with get_api_client() as client:
+        try:
+            resp = client.get(f"/findings/{finding_id}/lifecycle")
+            resp.raise_for_status()
+            data = resp.json()
+        except httpx.HTTPStatusError as e:
+            console.print(f"[red]Failed: {e.response.text}[/red]")
+            return
+    console.print(f"[green]Finding {finding_id} lifecycle: {data['current_status']} ({data['retest_count']} retests)[/green]")
+    for h in data["history"]:
+        console.print(f"  Scan {h['scan_id']}: {h['result']} at {h['created_at']}")
+
+
 @cli.command()
 def serve():
     """Start the API server"""

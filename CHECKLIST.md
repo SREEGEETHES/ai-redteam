@@ -122,17 +122,17 @@
 
 ## SPRINT 10 — Streamlit Dashboard
 
-* [ ] Dashboard
-* [ ] Target selector
-* [ ] Scan launcher
-* [ ] Progress
-* [ ] PASS/FAIL dashboard
-* [ ] Severity dashboard
-* [ ] Findings
-* [ ] Evidence viewer
-* [ ] Remediation viewer
-* [ ] Retest button
-* [ ] Scan history
+* [x] Dashboard (dashboard/main.py:1 — 13 pages, wide layout, API health)
+* [x] Target selector (Targets page with list/health, add, details + protection checks via GET /protections/checks)
+* [x] Scan launcher (Scan page with target/category/attack selectors, POST /scans + POST /scans/{id}/run, real API, no CLI)
+* [x] Progress (Scan page progress bar per test, bar_chart PASS/FAIL, polling, last_scan_id session)
+* [x] PASS/FAIL dashboard (Overview bar_chart counts, Scan progress bar, Findings table)
+* [x] Severity dashboard (Overview bar_chart severity_counts, Findings filter)
+* [x] Findings (Findings page with scan selector, severity filter, remediation/retest expanders, Retest button POST /findings/{id}/retest)
+* [x] Evidence viewer (Evidence page with request/response/tool/retrieval/detectors/reproduction/hash, compare before/after)
+* [x] Remediation viewer (Remediation page per finding with root cause/impact/protection/remediation/retest, GET /attacks/{id}/remediation)
+* [x] Retest button (Findings + Retest pages, CLI retest group, API retest/history/compare/lifecycle)
+* [x] Scan history (Scan History page with all scans, tests, findings, evidence, report buttons JSON/Markdown/HTML via GET /scans/{id}/report)
 
 ## SPRINT 11 — CI/CD
 

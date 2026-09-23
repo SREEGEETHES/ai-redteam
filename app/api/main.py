@@ -495,6 +495,70 @@ async def get_attack_remediation(attack_id: str, db: Session = Depends(get_db)):
     return build_remediation(attack)
 
 
+# --- Sprint 8 Regression (real) ---
+@app.post("/findings/{finding_id}/retest", status_code=status.HTTP_201_CREATED)
+async def retest_finding_endpoint(finding_id: int, db: Session = Depends(get_db)):
+    """Real retest: new scan for same attack, compare before/after, update regression status, store history."""
+    from app.regression.engine import retest_finding
+
+    try:
+        retest, finding, scan = retest_finding(finding_id, db)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    return {
+        "retest_id": retest.id,
+        "finding_id": finding.id,
+        "scan_id": scan.id,
+        "result": retest.result.value if hasattr(retest.result, "value") else str(retest.result),
+        "regression_status": finding.regression_status.value if hasattr(finding.regression_status, "value") else str(finding.regression_status),
+        "notes": retest.notes,
+    }
+
+
+@app.get("/findings/{finding_id}/history")
+async def get_finding_history(finding_id: int, db: Session = Depends(get_db)):
+    from app.regression.engine import get_regression_history
+
+    finding = db.query(Finding).filter(Finding.id == finding_id).first()
+    if not finding:
+        raise HTTPException(status_code=404, detail="Finding not found")
+    history = get_regression_history(finding_id, db)
+    return [
+        {
+            "id": r.id,
+            "finding_id": r.finding_id,
+            "scan_id": r.scan_id,
+            "result": r.result.value if hasattr(r.result, "value") else str(r.result),
+            "evidence": r.evidence,
+            "notes": r.notes,
+            "created_at": r.created_at.isoformat() if r.created_at else None,
+        }
+        for r in history
+    ]
+
+
+@app.get("/findings/{finding_id}/compare")
+async def get_finding_compare(finding_id: int, db: Session = Depends(get_db)):
+    from app.regression.engine import compare_before_after
+
+    try:
+        return compare_before_after(finding_id, db)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@app.get("/findings/{finding_id}/lifecycle")
+async def get_finding_lifecycle(finding_id: int, db: Session = Depends(get_db)):
+    from app.regression.engine import finding_lifecycle
+
+    try:
+        return finding_lifecycle(finding_id, db)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
 @app.patch("/checklist/{item_id}", response_model=ChecklistItemRecord)
 async def update_checklist_item(item_id: int, item: ChecklistItemRecord, db: Session = Depends(get_db)):
     db_item = db.query(ChecklistItem).filter(ChecklistItem.id == item_id).first()

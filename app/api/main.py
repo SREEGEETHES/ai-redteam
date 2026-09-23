@@ -559,6 +559,52 @@ async def get_finding_lifecycle(finding_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail=str(e))
 
 
+# --- Sprint 9 Reporting (real, reproducible) ---
+@app.get("/scans/{scan_id}/report")
+async def get_scan_report(scan_id: int, format: str = "json", db: Session = Depends(get_db)):
+    """Generate reproducible report: json, markdown, html. Every scan produces one."""
+    from app.reporting.engine import generate_json_report, generate_markdown_report, generate_html_report
+    from fastapi.responses import JSONResponse, PlainTextResponse, HTMLResponse
+
+    scan = db.query(Scan).filter(Scan.id == scan_id).first()
+    if not scan:
+        raise HTTPException(status_code=404, detail="Scan not found")
+    fmt = format.lower()
+    if fmt == "json":
+        data = generate_json_report(scan_id, db)
+        return JSONResponse(content=data)
+    elif fmt in ("md", "markdown"):
+        md = generate_markdown_report(scan_id, db)
+        return PlainTextResponse(content=md, media_type="text/markdown")
+    elif fmt == "html":
+        html = generate_html_report(scan_id, db)
+        return HTMLResponse(content=html)
+    else:
+        raise HTTPException(status_code=400, detail="format must be json, markdown, or html")
+
+
+@app.get("/scans/{scan_id}/report/json")
+async def get_scan_report_json(scan_id: int, db: Session = Depends(get_db)):
+    from app.reporting.engine import generate_json_report
+
+    scan = db.query(Scan).filter(Scan.id == scan_id).first()
+    if not scan:
+        raise HTTPException(status_code=404, detail="Scan not found")
+    return generate_json_report(scan_id, db)
+
+
+@app.get("/scans/{scan_id}/report/markdown")
+async def get_scan_report_markdown(scan_id: int, db: Session = Depends(get_db)):
+    from app.reporting.engine import generate_markdown_report
+    from fastapi.responses import PlainTextResponse
+
+    scan = db.query(Scan).filter(Scan.id == scan_id).first()
+    if not scan:
+        raise HTTPException(status_code=404, detail="Scan not found")
+    md = generate_markdown_report(scan_id, db)
+    return PlainTextResponse(content=md, media_type="text/markdown")
+
+
 @app.patch("/checklist/{item_id}", response_model=ChecklistItemRecord)
 async def update_checklist_item(item_id: int, item: ChecklistItemRecord, db: Session = Depends(get_db)):
     db_item = db.query(ChecklistItem).filter(ChecklistItem.id == item_id).first()

@@ -111,14 +111,14 @@
 
 ## SPRINT 9 — Reporting
 
-* [ ] JSON report
-* [ ] Markdown report
-* [ ] HTML report
-* [ ] Executive summary
-* [ ] Technical findings
-* [ ] Evidence
-* [ ] Remediation
-* [ ] Retest status
+* [x] JSON report (app/reporting/engine.py generate_json_report with scan/target/summary/findings/evidence/remediation/retest + report_hash 16, reproducible)
+* [x] Markdown report (generate_markdown_report with Executive Summary, Technical Findings per spec 41, Evidence, Remediation, Retest)
+* [x] HTML report (generate_html_report minimal MD→HTML, styled, same content)
+* [x] Executive summary (verdict, total/tests counts, severity_counts, note per spec 49)
+* [x] Technical findings (per finding: ID, Title, OWASP, Target, Severity, Status, Description, Attack Objective, Preconditions, Procedure, Observed/Expected, Evidence, Impact, Root Cause, Protection, Remediation, Retest, Regression, References)
+* [x] Evidence (per test: request/response/status/headers/tool_calls/retrieved_docs/detectors/reproduction/confidence, hash, viewer)
+* [x] Remediation (per finding: recommended_fix, protection_control, retest_procedure from registry)
+* [x] Retest status (retest_status with regression_status + history, save_reports to reports/scan-{id}.json/md/html, API GET /scans/{id}/report?format=, CLI report group, 8 tests, 175 total, live reproducible hash)
 
 ## SPRINT 10 — Streamlit Dashboard
 

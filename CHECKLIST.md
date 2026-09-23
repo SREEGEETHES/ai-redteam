@@ -102,12 +102,12 @@
 
 ## SPRINT 8 — Regression
 
-* [ ] Retest engine
-* [ ] Before/after comparison
-* [ ] Regression status
-* [ ] Finding lifecycle
-* [ ] Fix verification
-* [ ] Regression history
+* [x] Retest engine (app/regression/engine.py - real retest_finding creates retest scan, runs single attack via orchestrator, compares FAIL→PASS)
+* [x] Before/after comparison (compare_before_after returns original_result, latest_retest, evidence, verified bool)
+* [x] Regression status (RegressionStatus: NOT_TESTED, VERIFIED, REGRESSION_FAILED, FIX_PENDING per spec 28)
+* [x] Finding lifecycle (finding_lifecycle timeline, retest_count, history)
+* [x] Fix verification (FAIL→PASS => VERIFIED, FAIL→FAIL => REGRESSION_FAILED, FAIL→INCONCLUSIVE/ERROR => FIX_PENDING, live vuln→secure verified)
+* [x] Regression history (get_regression_history, Retest table, API GET /findings/{id}/history/compare/lifecycle, CLI retest group, 6 tests, 167 total, live vulnerable FAIL→secure PASS retest history)
 
 ## SPRINT 9 — Reporting
 

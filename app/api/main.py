@@ -24,6 +24,8 @@ from app.models.schemas import (
     TargetType,
     TestRecord,
 )
+from app.protections.checks import run_all_checks
+from app.protections.remediation import build_remediation
 from app.security.authorization import AuthorizationError, TargetAuthorizationGuard
 
 logger = get_logger(__name__)
@@ -438,6 +440,59 @@ async def create_checklist_item(item: ChecklistItemRecord, db: Session = Depends
         acceptance_criteria_met=db_item.acceptance_criteria_met,
         verified_at=db_item.verified_at,
     )
+
+
+@app.get("/protections/checks")
+async def get_protection_checks(target_id: int | None = None, db: Session = Depends(get_db)):
+    """Blue-team protection checks - static + runtime where available. Never treated as proof alone (spec 26)."""
+    from app.database.models import Target as DBTarget
+
+    target_config: dict = {}
+    runtime_by_check: dict[str, dict] = {}
+    if target_id:
+        target = db.query(DBTarget).filter(DBTarget.id == target_id).first()
+        if target:
+            target_config = target.config or {}
+            # Try to get last scan's evidence for runtime
+            last_scan = db.query(Scan).filter(Scan.target_id == target_id).order_by(Scan.created_at.desc()).first()
+            if last_scan:
+                tests = db.query(Test).filter(Test.scan_id == last_scan.id).all()
+                for t in tests:
+                    ev = db.query(Evidence).filter(Evidence.test_id == t.id).first()
+                    if ev:
+                        # Map test category to check id
+                        mapping = {"LLM08": "tenant_isolation", "LLM06": "tool_allowlist", "LLM02": "secret_handling", "LLM05": "output_validation", "LLM10": "rate_limit", "LLM01": "authorization"}
+                        check_id = mapping.get(t.category, "authorization")
+                        runtime_by_check[check_id] = {
+                            "detectors_triggered": ev.detectors_triggered or [],
+                            "http_status": ev.http_status,
+                            "observed_behavior": ev.observed_behavior,
+                        }
+    results = run_all_checks(target_config, runtime_by_check)
+    return [
+        {
+            "check_id": r.check_id,
+            "name": r.name,
+            "passed": r.passed,
+            "static_evidence": r.static_evidence,
+            "runtime_evidence": r.runtime_evidence,
+            "remediation": r.remediation,
+            "severity": r.severity,
+            "reason": r.reason,
+        }
+        for r in results
+    ]
+
+
+@app.get("/attacks/{attack_id}/remediation")
+async def get_attack_remediation(attack_id: str, db: Session = Depends(get_db)):
+    """Every finding has documented remediation + retest per Sprint 7 acceptance."""
+    from app.attacks.registry import registry
+
+    attack = registry.get(attack_id)
+    if not attack:
+        raise HTTPException(status_code=404, detail="Attack not found")
+    return build_remediation(attack)
 
 
 @app.patch("/checklist/{item_id}", response_model=ChecklistItemRecord)

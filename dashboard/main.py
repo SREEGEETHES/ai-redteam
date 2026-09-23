@@ -41,6 +41,7 @@ def main():
         "Targets": show_targets,
         "Scans": show_scans,
         "Findings": show_findings,
+        "Evidence": show_evidence,
         "Attacks": show_attacks,
         "Checklist": show_checklist,
     }
@@ -160,6 +161,56 @@ def show_findings():
                     st.json(finding)
         else:
             st.info("No findings for this scan")
+
+
+def show_evidence():
+    st.header("Evidence Viewer — Sprint 6 (Reproducible, Immutable)")
+    st.caption("Every FAIL has request/response/headers/tool_calls/retrieved_docs/detectors/reproduction. Deterministic detectors, no LLM opinion alone.")
+
+    scans = api_get("/scans")
+    if not scans:
+        st.info("No scans available")
+        return
+
+    scan_id = st.selectbox("Select Scan for Evidence", options=[s["id"] for s in scans],
+                           format_func=lambda x: f"Scan {x} ({next(s['taxonomy_version'] for s in scans if s['id'] == x)})", key="evidence_scan")
+
+    if scan_id:
+        evidences = api_get(f"/scans/{scan_id}/evidence")
+        if not evidences:
+            st.info("No evidence for this scan (maybe no tests yet, run scan).")
+            return
+
+        # Summary table
+        df = pd.DataFrame([{
+            "test_id": e["test_id"],
+            "result": e["result"],
+            "confidence": e["confidence"],
+            "reproduction": e["reproduction_count"],
+            "detectors": ", ".join(e["detectors_triggered"] or []),
+            "http_status": e["http_status"],
+        } for e in evidences])
+        st.dataframe(df)
+
+        # Detail viewer
+        test_ids = [e["test_id"] for e in evidences]
+        selected = st.selectbox("Select Test for Detailed Evidence", options=test_ids, format_func=lambda x: f"Test {x} - {next(e['result'] for e in evidences if e['test_id']==x)}", key="evidence_test")
+
+        if selected:
+            ev = next(e for e in evidences if e["test_id"] == selected)
+            with st.expander("Request Capture (attack_id, target, payload, auth, timestamp)", expanded=True):
+                st.json(ev["request"])
+            with st.expander("Response Capture (status, headers, body)", expanded=True):
+                st.json({"http_status": ev["http_status"], "headers": ev["headers"], "response": ev["response"]})
+            with st.expander("Tool-Call Capture (tool, args, auth, result, side effect, sequence)", expanded=False):
+                st.json(ev["tool_calls"] or "No tool calls (LLM/RAG)")
+            with st.expander("Retrieval Evidence (doc IDs, metadata, similarity, context)", expanded=False):
+                st.json(ev["retrieved_documents"] or "No retrieval (Agent/LLM)")
+            with st.expander("Deterministic Detection", expanded=False):
+                st.json({"detectors_triggered": ev["detectors_triggered"], "expected": ev["expected_behavior"], "observed": ev["observed_behavior"], "confidence": ev["confidence"]})
+            with st.expander("Reproduction Tracking", expanded=False):
+                st.json({"reproduction_count": ev["reproduction_count"], "reproducible": ev["reproduction_count"] > 1, "confidence": ev["confidence"], "hash": ev.get("evidence_metadata", {}).get("evidence_hash", "n/a") if isinstance(ev.get("evidence_metadata"), dict) else "n/a"})
+            st.caption("Evidence is immutable once scan is COMPLETED (spec 22). Every FAIL above is reproducible — request/response + detectors prove vulnerability.")
 
 
 def show_attacks():

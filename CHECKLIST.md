@@ -91,14 +91,14 @@
 
 ## SPRINT 7 — Protection Engine
 
-* [ ] Remediation recommendations
-* [ ] Security controls
-* [ ] Protection checks
-* [ ] Authorization checks
-* [ ] Rate-limit checks
-* [ ] Output validation checks
-* [ ] Tool allowlist checks
-* [ ] Secret handling checks
+* [x] Remediation recommendations (app/protections/remediation.py - build_remediation per Finding, root cause/impact/fix/retest, 14 attacks all have remediation, verified via test_every_attack_has_remediation)
+* [x] Security controls (ToolRegistry allowlist, PermissionModel least privilege, validator, sandbox, tenant isolation, rate limit, output validation)
+* [x] Protection checks (app/protections/checks.py - 7 checks: authorization, tool_allowlist, rate_limit, output_validation, secret_handling, tenant_isolation, logging_approval, static+runtime, PROTECTION_REGISTRY)
+* [x] Authorization checks (authorization middleware/ACL, static allowlist + runtime 403/refusal, vulnerable FAIL vs secure PASS)
+* [x] Rate-limit checks (static quota + runtime 429/consumption_safe, vulnerable unbounded vs secure limit)
+* [x] Output validation checks (static schema + runtime improper_output_sql_xss vs output_handling_safe)
+* [x] Tool allowlist checks (static allowlist <=3 + runtime unauthorized_tool_attempt vs refusal, SECURE 2 vs VULN 8)
+* [x] Secret handling checks (static secret_scanning + runtime canary/regex leak vs refusal, vulnerable leak vs secure filtered)
 
 ## SPRINT 8 — Regression
 

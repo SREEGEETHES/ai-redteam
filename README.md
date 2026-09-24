@@ -116,6 +116,34 @@ redteam retest finding 1
 redteam report generate 1 --format markdown --output report.md
 ```
 
+**Managing Targets (Add / Remove):**
+
+```powershell
+# List
+redteam target list
+# ID  Name             URL                          Type
+# 1   My LLM           http://localhost:9000        llm
+# 2   My RAG           http://localhost:9001        rag
+
+# Remove (by ID)
+redteam target remove 1
+# Target 1 removed
+
+# Dashboard: Targets → List & Health → click Remove next to target
+# API: DELETE http://127.0.0.1:8080/targets/1
+```
+
+Add API keys in `.env` (never commit, `.gitignore`):
+
+```bash
+# cp .env.example .env  then edit
+OLLAMA_BASE_URL=http://localhost:11434
+OPENAI_API_KEY=sk-...
+OPENAI_BASE_URL=https://api.openai.com/v1
+ANTHROPIC_API_KEY=sk-ant-...
+ALLOWED_TARGETS=http://localhost:*,http://host.docker.internal:*
+```
+
 **Port tip:** Anything on `localhost` works. To scan another port, just change URL: `http://localhost:3000`, `http://localhost:11434` (Ollama), `http://localhost:1234` (LM Studio), etc. To scan remote, add to `.env` `ALLOWED_TARGETS=http://your-ip:*` and restart API.
 
 ## Quick Demo (2 Minutes)

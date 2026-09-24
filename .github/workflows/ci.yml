@@ -15,11 +15,11 @@ env:
 jobs:
   # ─── Code Quality ───
   lint-typecheck:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4.2.2
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v5.3.0
         with:
           python-version: '3.11'
       - name: Install dependencies
@@ -32,7 +32,7 @@ jobs:
 
   # ─── Unit & Integration Tests ───
   test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     needs: lint-typecheck
     services:
       postgres:
@@ -48,9 +48,9 @@ jobs:
           --health-timeout 5s
           --health-retries 5
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4.2.2
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v5.3.0
         with:
           python-version: '3.11'
       - name: Install dependencies
@@ -63,13 +63,13 @@ jobs:
 
   # ─── Security Regression Tests ───
   security-regression:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     needs: test
     if: github.event_name == 'schedule' || github.event_name == 'pull_request'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4.2.2
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v5.3.0
         with:
           python-version: '3.11'
       - name: Install dependencies
@@ -96,14 +96,14 @@ jobs:
 
   # ─── Docker Build & Push ───
   build-push:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     needs: [lint-typecheck, test]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     permissions:
       contents: read
       packages: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4.2.2
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
       - name: Log in to Container Registry
@@ -145,7 +145,7 @@ jobs:
 
   # ─── Security Regression Gate ───
   security-gate:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     needs: [security-regression, build-push]
     if: github.event_name == 'pull_request' || github.event_name == 'push'
     steps:
@@ -157,11 +157,11 @@ jobs:
 
   # ─── Release Artifacts ───
   release:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     needs: build-push
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4.2.2
       - name: Generate changelog
         run: |
           git log --oneline --pretty=format:"- %s" $(git describe --tags --abbrev=0 HEAD^)..HEAD > CHANGELOG.md

@@ -136,12 +136,12 @@
 
 ## SPRINT 11 — CI/CD
 
-* [ ] GitHub Actions
-* [ ] Automated tests
-* [ ] Security regression tests
-* [ ] Scanner test suite
-* [ ] Docker build
-* [ ] Artifact generation
+* [x] GitHub Actions (`.github/workflows/ci.yml` + `artifacts.yml`)
+* [x] Automated tests (lint, typecheck, unit, integration on every PR/push)
+* [x] Security regression tests (daily scheduled + PR gate, vulnerable vs secure labs)
+* [x] Scanner test suite (183 tests in CI, 183 passed)
+* [x] Docker build (multi-stage, Buildx, multi-arch, cache, GHCR push on main)
+* [x] Artifact generation (reports JSON/MD/HTML, test results, coverage, SBOM)
 
 ## SPRINT 12 — J.A.R.V.I.S. Integration
 

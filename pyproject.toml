@@ -1,3 +1,12 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["app*"]
+exclude = ["docker*", "config*", "dashboard*"]
+
 [project]
 name = "ai-red-team"
 version = "0.1.0"

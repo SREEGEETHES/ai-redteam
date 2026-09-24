@@ -73,9 +73,6 @@ def add_target(name: str, url: str, target_type: str, headers: tuple):
 @target.command("list")
 def list_targets():
     """List all targets"""
-    with db_session() as db:
-        targets = db.query(Target).all()
-
     table = Table(title="Scan Targets")
     table.add_column("ID", style="cyan")
     table.add_column("Name", style="green")
@@ -84,15 +81,17 @@ def list_targets():
     table.add_column("Authorized", style="magenta")
     table.add_column("Created", style="dim")
 
-    for t in targets:
-        table.add_row(
-            str(t.id),
-            t.name,
-            t.target_type,
-            t.base_url,
-            "✓" if t.is_authorized else "✗",
-            t.created_at.strftime("%Y-%m-%d %H:%M") if t.created_at else "N/A",
-        )
+    with db_session() as db:
+        targets = db.query(Target).all()
+        for t in targets:
+            table.add_row(
+                str(t.id),
+                t.name,
+                t.target_type,
+                t.base_url,
+                "YES" if t.is_authorized else "NO",
+                t.created_at.strftime("%Y-%m-%d %H:%M") if t.created_at else "N/A",
+            )
 
     console.print(table)
 

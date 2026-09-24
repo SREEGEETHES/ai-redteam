@@ -1,0 +1,46 @@
+name: Generate Artifacts
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    tags: ['v*']
+
+jobs:
+  build-artifacts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: pip install -e ".[dev]"
+      - name: Run tests & generate reports
+        run: |
+          pytest tests/unit -v --tb=short --junitxml=reports/test-results.xml
+          # Generate all reports for latest scan
+          python -c "
+from app.database.session import init_db, SessionLocal
+from app.database.models import Scan
+from app.reporting.engine import save_reports
+init_db()
+db = SessionLocal()
+scan = db.query(Scan).order_by(Scan.created_at.desc()).first()
+if scan:
+    paths = save_reports(scan.id, db, 'reports')
+    print('Reports saved:', paths)
+"
+      - name: Upload reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: reports
+          path: reports/
+          retention-days: 30
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: reports/test-results.xml
+          retention-days: 30

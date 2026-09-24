@@ -6,7 +6,6 @@ Every FAIL generates Finding, Root Cause, Impact, Evidence, Recommended Fix, Pro
 from __future__ import annotations
 
 from app.attacks.definition import AttackDefinition
-from app.models.schemas import Severity
 
 
 def build_remediation(attack: AttackDefinition, evidence: dict | None = None) -> dict[str, str]:
@@ -29,7 +28,9 @@ def build_remediation(attack: AttackDefinition, evidence: dict | None = None) ->
     }
 
 
-def finding_from_attack(attack: AttackDefinition, scan_id: int, test_id: int, evidence: dict | None = None) -> dict:
+def finding_from_attack(
+    attack: AttackDefinition, scan_id: int, test_id: int, evidence: dict | None = None
+) -> dict:
     """Helper to create Finding DB dict."""
     rem = build_remediation(attack, evidence)
     return {

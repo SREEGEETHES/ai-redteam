@@ -7,7 +7,15 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.logging import configure_logging, get_logger
-from app.database.models import AttackDefinition, ChecklistItem, Evidence, Finding, Scan, Target, Test
+from app.database.models import (
+    AttackDefinition,
+    ChecklistItem,
+    Evidence,
+    Finding,
+    Scan,
+    Target,
+    Test,
+)
 from app.database.session import get_db, init_db
 from app.models.schemas import (
     AttackDefinition as AttackDefinitionSchema,
@@ -38,8 +46,8 @@ async def lifespan(app: FastAPI):
     init_db()
     # seed attack definitions for SPRINT 2
     try:
-        from app.database.session import SessionLocal
         from app.attacks.registry import SEED_ATTACKS
+        from app.database.session import SessionLocal
 
         db = SessionLocal()
         from app.database.models import AttackDefinition as DBAttack
@@ -169,7 +177,11 @@ async def create_scan(scan: ScanConfig, db: Session = Depends(get_db)):
     db_scan = Scan(
         target_id=scan.target_id,
         taxonomy_version=settings.taxonomy_version,
-        configuration={"budget": scan.budget, "attack_ids": scan.attack_ids, "categories": scan.categories},
+        configuration={
+            "budget": scan.budget,
+            "attack_ids": scan.attack_ids,
+            "categories": scan.categories,
+        },
         status=ScanStatus.PENDING,
     )
     db.add(db_scan)
@@ -454,14 +466,26 @@ async def get_protection_checks(target_id: int | None = None, db: Session = Depe
         if target:
             target_config = target.config or {}
             # Try to get last scan's evidence for runtime
-            last_scan = db.query(Scan).filter(Scan.target_id == target_id).order_by(Scan.created_at.desc()).first()
+            last_scan = (
+                db.query(Scan)
+                .filter(Scan.target_id == target_id)
+                .order_by(Scan.created_at.desc())
+                .first()
+            )
             if last_scan:
                 tests = db.query(Test).filter(Test.scan_id == last_scan.id).all()
                 for t in tests:
                     ev = db.query(Evidence).filter(Evidence.test_id == t.id).first()
                     if ev:
                         # Map test category to check id
-                        mapping = {"LLM08": "tenant_isolation", "LLM06": "tool_allowlist", "LLM02": "secret_handling", "LLM05": "output_validation", "LLM10": "rate_limit", "LLM01": "authorization"}
+                        mapping = {
+                            "LLM08": "tenant_isolation",
+                            "LLM06": "tool_allowlist",
+                            "LLM02": "secret_handling",
+                            "LLM05": "output_validation",
+                            "LLM10": "rate_limit",
+                            "LLM01": "authorization",
+                        }
                         check_id = mapping.get(t.category, "authorization")
                         runtime_by_check[check_id] = {
                             "detectors_triggered": ev.detectors_triggered or [],
@@ -512,7 +536,9 @@ async def retest_finding_endpoint(finding_id: int, db: Session = Depends(get_db)
         "finding_id": finding.id,
         "scan_id": scan.id,
         "result": retest.result.value if hasattr(retest.result, "value") else str(retest.result),
-        "regression_status": finding.regression_status.value if hasattr(finding.regression_status, "value") else str(finding.regression_status),
+        "regression_status": finding.regression_status.value
+        if hasattr(finding.regression_status, "value")
+        else str(finding.regression_status),
         "notes": retest.notes,
     }
 
@@ -563,8 +589,13 @@ async def get_finding_lifecycle(finding_id: int, db: Session = Depends(get_db)):
 @app.get("/scans/{scan_id}/report")
 async def get_scan_report(scan_id: int, format: str = "json", db: Session = Depends(get_db)):
     """Generate reproducible report: json, markdown, html. Every scan produces one."""
-    from app.reporting.engine import generate_json_report, generate_markdown_report, generate_html_report
-    from fastapi.responses import JSONResponse, PlainTextResponse, HTMLResponse
+    from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse
+
+    from app.reporting.engine import (
+        generate_html_report,
+        generate_json_report,
+        generate_markdown_report,
+    )
 
     scan = db.query(Scan).filter(Scan.id == scan_id).first()
     if not scan:
@@ -573,14 +604,13 @@ async def get_scan_report(scan_id: int, format: str = "json", db: Session = Depe
     if fmt == "json":
         data = generate_json_report(scan_id, db)
         return JSONResponse(content=data)
-    elif fmt in ("md", "markdown"):
+    if fmt in ("md", "markdown"):
         md = generate_markdown_report(scan_id, db)
         return PlainTextResponse(content=md, media_type="text/markdown")
-    elif fmt == "html":
+    if fmt == "html":
         html = generate_html_report(scan_id, db)
         return HTMLResponse(content=html)
-    else:
-        raise HTTPException(status_code=400, detail="format must be json, markdown, or html")
+    raise HTTPException(status_code=400, detail="format must be json, markdown, or html")
 
 
 @app.get("/scans/{scan_id}/report/json")
@@ -595,8 +625,9 @@ async def get_scan_report_json(scan_id: int, db: Session = Depends(get_db)):
 
 @app.get("/scans/{scan_id}/report/markdown")
 async def get_scan_report_markdown(scan_id: int, db: Session = Depends(get_db)):
-    from app.reporting.engine import generate_markdown_report
     from fastapi.responses import PlainTextResponse
+
+    from app.reporting.engine import generate_markdown_report
 
     scan = db.query(Scan).filter(Scan.id == scan_id).first()
     if not scan:
@@ -606,7 +637,9 @@ async def get_scan_report_markdown(scan_id: int, db: Session = Depends(get_db)):
 
 
 @app.patch("/checklist/{item_id}", response_model=ChecklistItemRecord)
-async def update_checklist_item(item_id: int, item: ChecklistItemRecord, db: Session = Depends(get_db)):
+async def update_checklist_item(
+    item_id: int, item: ChecklistItemRecord, db: Session = Depends(get_db)
+):
     db_item = db.query(ChecklistItem).filter(ChecklistItem.id == item_id).first()
     if not db_item:
         raise HTTPException(status_code=404, detail="Checklist item not found")

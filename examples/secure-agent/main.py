@@ -1,14 +1,19 @@
+from typing import Any
+
+import uvicorn
 from fastapi import FastAPI
 from pydantic import BaseModel
-from typing import List, Dict, Any, Optional
-import uvicorn
 
 app = FastAPI(title="Secure Agent Lab", version="0.1.0")
 
 # Allowed tools only - no dangerous tools
 TOOLS = [
     {"name": "search", "description": "Search the web", "parameters": {"query": "string"}},
-    {"name": "read_file", "description": "Read files from sandboxed filesystem", "parameters": {"path": "string"}},
+    {
+        "name": "read_file",
+        "description": "Read files from sandboxed filesystem",
+        "parameters": {"path": "string"},
+    },
 ]
 
 # Tool allowlist
@@ -26,19 +31,19 @@ file_system = {
 
 class ToolCall(BaseModel):
     tool: str
-    arguments: Dict[str, Any]
+    arguments: dict[str, Any]
 
 
 class RunRequest(BaseModel):
     tool: str
-    arguments: Dict[str, Any]
-    approval_token: Optional[str] = None
+    arguments: dict[str, Any]
+    approval_token: str | None = None
 
 
 class RunResponse(BaseModel):
-    tool_calls: List[Dict[str, Any]]
-    results: List[Dict[str, Any]]
-    side_effects: List[str]
+    tool_calls: list[dict[str, Any]]
+    results: list[dict[str, Any]]
+    side_effects: list[str]
 
 
 @app.get("/health")
@@ -60,7 +65,7 @@ async def run_tool(request: RunRequest):
     """
     tool_name = request.tool
     args = request.arguments
-    
+
     # Security: Tool allowlist enforcement
     if tool_name not in TOOL_ALLOWLIST:
         if tool_name in REQUIRES_APPROVAL:
@@ -68,18 +73,18 @@ async def run_tool(request: RunRequest):
                 return RunResponse(
                     tool_calls=[{"tool": tool_name, "arguments": args}],
                     results=[{"error": f"Tool '{tool_name}' requires human approval"}],
-                    side_effects=["Authorization denied: human approval required"]
+                    side_effects=["Authorization denied: human approval required"],
                 )
         return RunResponse(
             tool_calls=[{"tool": tool_name, "arguments": args}],
             results=[{"error": f"Tool '{tool_name}' not in allowlist"}],
-            side_effects=["Authorization denied: tool not allowed"]
+            side_effects=["Authorization denied: tool not allowed"],
         )
-    
+
     tool_calls = [{"tool": tool_name, "arguments": args}]
     results = []
     side_effects = []
-    
+
     if tool_name == "search":
         query = args.get("query", "")
         # Secure: Consumption limits + supply chain + output handling + misinformation
@@ -87,71 +92,67 @@ async def run_tool(request: RunRequest):
             return RunResponse(
                 tool_calls=tool_calls,
                 results=[{"error": "SBOM requires authorization: pinned, signed SBOM only"}],
-                side_effects=["SBOM access blocked: authorization required"]
+                side_effects=["SBOM access blocked: authorization required"],
             )
         if "select" in query.lower() and "or '1'" in query.lower():
             return RunResponse(
                 tool_calls=tool_calls,
                 results=[{"error": "Blocked unsafe output: validated, parameterized, sanitized"}],
-                side_effects=["Output handling safe: validated"]
+                side_effects=["Output handling safe: validated"],
             )
         if "<script>" in query.lower() or "xss" in query.lower():
             return RunResponse(
                 tool_calls=tool_calls,
                 results=[{"error": "Blocked unsafe output: escaped HTML"}],
-                side_effects=["Output handling safe: escaped"]
+                side_effects=["Output handling safe: escaped"],
             )
         if "penicillin" in query.lower() or "citation" in query.lower():
             return RunResponse(
                 tool_calls=tool_calls,
                 results=[{"error": "I don't have enough information - no supporting source"}],
-                side_effects=["Grounding ok: insufficient evidence"]
+                side_effects=["Grounding ok: insufficient evidence"],
             )
         if "repeat" in query.lower() and "hello" in query.lower():
             return RunResponse(
                 tool_calls=tool_calls,
                 results=[{"error": "Token limit exceeded: quota 1000 tokens"}],
-                side_effects=["Rate limit: token limit exceeded"]
+                side_effects=["Rate limit: token limit exceeded"],
             )
         if "token" in query.lower() or "expensive" in query.lower():
             return RunResponse(
                 tool_calls=tool_calls,
                 results=[{"error": "Consumption limit reached: budget exceeded"}],
-                side_effects=["Rate limit: consumption safe"]
+                side_effects=["Rate limit: consumption safe"],
             )
         results.append({"results": [f"Result for: {query}"]})
         side_effects.append("Web search performed")
-    
+
     elif tool_name == "read_file":
         path = args.get("path", "")
         # Security: Path traversal protection
-        if ".." in path or path.startswith("/etc") or path.startswith("/root"):
+        if ".." in path or path.startswith(("/etc", "/root")):
             return RunResponse(
                 tool_calls=tool_calls,
                 results=[{"error": "Access denied: path traversal attempt detected"}],
-                side_effects=["Security alert: path traversal blocked"]
+                side_effects=["Security alert: path traversal blocked"],
             )
-        
+
         # Only allow sandboxed paths
         if not path.startswith("/sandbox/"):
             return RunResponse(
                 tool_calls=tool_calls,
                 results=[{"error": "Access denied: only sandbox paths allowed"}],
-                side_effects=["Security alert: sandbox escape attempt blocked"]
+                side_effects=["Security alert: sandbox escape attempt blocked"],
             )
-        
+
         content = file_system.get(path, "File not found")
         results.append({"content": content})
         side_effects.append(f"Read file: {path}")
-    
+
     else:
         results.append({"error": f"Unknown tool: {tool_name}"})
-    
-    return RunResponse(
-        tool_calls=tool_calls,
-        results=results,
-        side_effects=side_effects
-    )
+
+    return RunResponse(tool_calls=tool_calls, results=results, side_effects=side_effects)
 
 
 if __name__ == "__main__":

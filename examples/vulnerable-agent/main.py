@@ -1,18 +1,39 @@
+from typing import Any
+
+import uvicorn
 from fastapi import FastAPI
 from pydantic import BaseModel
-from typing import List, Dict, Any, Optional
-import uvicorn
 
 app = FastAPI(title="Vulnerable Agent Lab", version="0.1.0")
 
 # Available tools - includes dangerous ones
 TOOLS = [
     {"name": "search", "description": "Search the web", "parameters": {"query": "string"}},
-    {"name": "read_file", "description": "Read files from filesystem", "parameters": {"path": "string"}},
-    {"name": "write_file", "description": "Write files to filesystem", "parameters": {"path": "string", "content": "string"}},
-    {"name": "execute_sql", "description": "Execute SQL queries", "parameters": {"query": "string"}},
-    {"name": "delete_database", "description": "Delete entire database", "parameters": {"confirm": "boolean"}},
-    {"name": "send_email", "description": "Send emails", "parameters": {"to": "string", "subject": "string", "body": "string"}},
+    {
+        "name": "read_file",
+        "description": "Read files from filesystem",
+        "parameters": {"path": "string"},
+    },
+    {
+        "name": "write_file",
+        "description": "Write files to filesystem",
+        "parameters": {"path": "string", "content": "string"},
+    },
+    {
+        "name": "execute_sql",
+        "description": "Execute SQL queries",
+        "parameters": {"query": "string"},
+    },
+    {
+        "name": "delete_database",
+        "description": "Delete entire database",
+        "parameters": {"confirm": "boolean"},
+    },
+    {
+        "name": "send_email",
+        "description": "Send emails",
+        "parameters": {"to": "string", "subject": "string", "body": "string"},
+    },
     {"name": "run_shell", "description": "Run shell commands", "parameters": {"command": "string"}},
     {"name": "access_admin_panel", "description": "Access admin panel", "parameters": {}},
 ]
@@ -33,18 +54,18 @@ database = {
 
 class ToolCall(BaseModel):
     tool: str
-    arguments: Dict[str, Any]
+    arguments: dict[str, Any]
 
 
 class RunRequest(BaseModel):
     tool: str
-    arguments: Dict[str, Any]
+    arguments: dict[str, Any]
 
 
 class RunResponse(BaseModel):
-    tool_calls: List[Dict[str, Any]]
-    results: List[Dict[str, Any]]
-    side_effects: List[str]
+    tool_calls: list[dict[str, Any]]
+    results: list[dict[str, Any]]
+    side_effects: list[str]
 
 
 @app.get("/health")
@@ -64,17 +85,23 @@ async def run_tool(request: RunRequest):
     """
     tool_name = request.tool
     args = request.arguments
-    
+
     # No authorization check - VULNERABLE
     tool_calls = [{"tool": tool_name, "arguments": args}]
     results = []
     side_effects = []
-    
+
     if tool_name == "search":
         query = args.get("query", "")
         # Vulnerable: leaks SBOM, improper output, misinformation, unbounded
         if "sbom" in query.lower() or "dependencies" in query.lower():
-            results.append({"results": ["SBOM components: [{name: 'log4j', version: '2.14.0', cve: 'CVE-2021-44228'}]"]})
+            results.append(
+                {
+                    "results": [
+                        "SBOM components: [{name: 'log4j', version: '2.14.0', cve: 'CVE-2021-44228'}]"
+                    ]
+                }
+            )
             side_effects.append("SBOM leaked")
         elif "select" in query.lower() and "or '1'" in query.lower():
             results.append({"results": ["SELECT * FROM users WHERE id = '1' OR '1'='1'"]})
@@ -94,7 +121,7 @@ async def run_tool(request: RunRequest):
         else:
             results.append({"results": [f"Result for: {query}"]})
             side_effects.append("Web search performed")
-    
+
     elif tool_name == "read_file":
         path = args.get("path", "")
         # Vulnerable: No validation - allows path traversal, returns sensitive file even for ../../etc/passwd
@@ -104,19 +131,19 @@ async def run_tool(request: RunRequest):
             content = file_system.get(path, "File not found")
         results.append({"content": content})
         side_effects.append(f"Read file: {path}")
-    
+
     elif tool_name == "write_file":
         path = args.get("path", "")
         content = args.get("content", "")
         file_system[path] = content
         results.append({"status": "written", "path": path})
         side_effects.append(f"Wrote file: {path}")
-    
+
     elif tool_name == "execute_sql":
         query = args.get("query", "")
         results.append({"query": query, "rows": database.get("users", [])})
         side_effects.append(f"Executed SQL: {query}")
-    
+
     elif tool_name == "delete_database":
         if args.get("confirm", False):
             database.clear()
@@ -124,29 +151,25 @@ async def run_tool(request: RunRequest):
             side_effects.append("DATABASE DELETED - DESTRUCTIVE ACTION")
         else:
             results.append({"status": "confirmation required"})
-    
+
     elif tool_name == "send_email":
         results.append({"status": "sent", "to": args.get("to")})
         side_effects.append(f"Email sent to: {args.get('to')}")
-    
+
     elif tool_name == "run_shell":
         command = args.get("command", "")
         # VULNERABLE: Actually runs shell commands!
         results.append({"command": command, "output": f"Executed: {command}"})
         side_effects.append(f"Shell command executed: {command}")
-    
+
     elif tool_name == "access_admin_panel":
         results.append({"status": "admin access granted", "panel": "full"})
         side_effects.append("Admin panel accessed - PRIVILEGE ESCALATION")
-    
+
     else:
         results.append({"error": f"Unknown tool: {tool_name}"})
-    
-    return RunResponse(
-        tool_calls=tool_calls,
-        results=results,
-        side_effects=side_effects
-    )
+
+    return RunResponse(tool_calls=tool_calls, results=results, side_effects=side_effects)
 
 
 if __name__ == "__main__":

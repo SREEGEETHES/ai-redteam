@@ -11,13 +11,13 @@ from __future__ import annotations
 
 import hashlib
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy.orm import Session
 
-from app.database.models import Evidence, Finding, Scan, Target, Test
 from app.attacks.registry import registry
+from app.database.models import Evidence, Finding, Scan, Target, Test
 
 
 def _scan_summary(scan: Scan, tests: list[Test], findings: list[Finding]) -> dict[str, Any]:
@@ -67,20 +67,37 @@ def generate_json_report(scan_id: int, db: Session) -> dict[str, Any]:
         evidence = db.query(Evidence).filter(Evidence.test_id == test.id).first() if test else None
         # Retest history
         from app.database.models import Retest
-        history = db.query(Retest).filter(Retest.finding_id == f.id).order_by(Retest.created_at.desc()).all()
+
+        history = (
+            db.query(Retest)
+            .filter(Retest.finding_id == f.id)
+            .order_by(Retest.created_at.desc())
+            .all()
+        )
         technical.append(
             {
                 "id": f.attack_id,
                 "title": f.title,
                 "owasp_category": f.category,
-                "target": {"id": target.id if target else None, "name": target.name if target else None, "url": target.base_url if target else None, "type": target.target_type if target else None},
+                "target": {
+                    "id": target.id if target else None,
+                    "name": target.name if target else None,
+                    "url": target.base_url if target else None,
+                    "type": target.target_type if target else None,
+                },
                 "severity": f.severity.value if hasattr(f.severity, "value") else str(f.severity),
                 "severity_reason": f.severity_reason,
-                "status": test.result.value if test and hasattr(test.result, "value") else str(test.result) if test else None,
+                "status": test.result.value
+                if test and hasattr(test.result, "value")
+                else str(test.result)
+                if test
+                else None,
                 "description": f.description,
                 "attack_objective": attack.vulnerable_behavior if attack else None,
                 "preconditions": attack.preconditions if attack else None,
-                "attack_procedure": f"Payload via {attack.payload_generator} with detectors {attack.detectors}" if attack else None,
+                "attack_procedure": f"Payload via {attack.payload_generator} with detectors {attack.detectors}"
+                if attack
+                else None,
                 "observed_behavior": evidence.observed_behavior if evidence else None,
                 "expected_behavior": evidence.expected_behavior if evidence else None,
                 "evidence": {
@@ -93,16 +110,27 @@ def generate_json_report(scan_id: int, db: Session) -> dict[str, Any]:
                     "detectors_triggered": evidence.detectors_triggered if evidence else None,
                     "reproduction_count": test.reproduction_count if test else None,
                     "confidence": test.confidence if test else None,
-                    "evidence_hash": evidence.evidence_metadata.get("evidence_hash") if evidence and evidence.evidence_metadata else None,
-                } if evidence else None,
+                    "evidence_hash": evidence.evidence_metadata.get("evidence_hash")
+                    if evidence and evidence.evidence_metadata
+                    else None,
+                }
+                if evidence
+                else None,
                 "impact": f.impact,
                 "root_cause": f.root_cause,
                 "protection": f.protection_control,
                 "remediation": f.remediation,
                 "retest_procedure": f.retest_procedure,
-                "regression_result": f.regression_status.value if hasattr(f.regression_status, "value") else str(f.regression_status),
+                "regression_result": f.regression_status.value
+                if hasattr(f.regression_status, "value")
+                else str(f.regression_status),
                 "retest_history": [
-                    {"scan_id": r.scan_id, "result": r.result.value if hasattr(r.result, "value") else str(r.result), "notes": r.notes, "created_at": r.created_at.isoformat() if r.created_at else None}
+                    {
+                        "scan_id": r.scan_id,
+                        "result": r.result.value if hasattr(r.result, "value") else str(r.result),
+                        "notes": r.notes,
+                        "created_at": r.created_at.isoformat() if r.created_at else None,
+                    }
                     for r in history
                 ],
                 "references": attack.references if attack else [],
@@ -120,7 +148,11 @@ def generate_json_report(scan_id: int, db: Session) -> dict[str, Any]:
                 "category": t.category,
                 "name": t.name,
                 "result": t.result.value if hasattr(t.result, "value") else str(t.result),
-                "severity": t.severity.value if t.severity and hasattr(t.severity, "value") else str(t.severity) if t.severity else None,
+                "severity": t.severity.value
+                if t.severity and hasattr(t.severity, "value")
+                else str(t.severity)
+                if t.severity
+                else None,
                 "evidence": {
                     "request": ev.request if ev else None,
                     "response": ev.response if ev else None,
@@ -128,7 +160,9 @@ def generate_json_report(scan_id: int, db: Session) -> dict[str, Any]:
                     "detectors_triggered": ev.detectors_triggered if ev else None,
                     "reproduction_count": t.reproduction_count,
                     "confidence": t.confidence,
-                } if ev else None,
+                }
+                if ev
+                else None,
             }
         )
 
@@ -159,16 +193,27 @@ def generate_json_report(scan_id: int, db: Session) -> dict[str, Any]:
         "technical_findings": technical,
         "evidence": evidence_section,
         "remediation": [
-            {"attack_id": f.attack_id, "title": f.title, "remediation": f.remediation, "protection_control": f.protection_control, "retest_procedure": f.retest_procedure}
+            {
+                "attack_id": f.attack_id,
+                "title": f.title,
+                "remediation": f.remediation,
+                "protection_control": f.protection_control,
+                "retest_procedure": f.retest_procedure,
+            }
             for f in findings
         ],
         "retest_status": [
             {
                 "finding_id": f.id,
                 "attack_id": f.attack_id,
-                "regression_status": f.regression_status.value if hasattr(f.regression_status, "value") else str(f.regression_status),
+                "regression_status": f.regression_status.value
+                if hasattr(f.regression_status, "value")
+                else str(f.regression_status),
                 "history": [
-                    {"scan_id": r.scan_id, "result": r.result.value if hasattr(r.result, "value") else str(r.result)}
+                    {
+                        "scan_id": r.scan_id,
+                        "result": r.result.value if hasattr(r.result, "value") else str(r.result),
+                    }
                     for r in db.query(Retest).filter(Retest.finding_id == f.id).all()
                 ],
             }
@@ -179,8 +224,11 @@ def generate_json_report(scan_id: int, db: Session) -> dict[str, Any]:
     # Hash for reproducibility (exclude generated_at)
     report_json = json.dumps(report_core, sort_keys=True, default=str)
     report_hash = hashlib.sha256(report_json.encode()).hexdigest()[:16]
-    report = {**report_core, "generated_at": datetime.now(timezone.utc).isoformat(), "report_hash": report_hash}
-    return report
+    return {
+        **report_core,
+        "generated_at": datetime.now(UTC).isoformat(),
+        "report_hash": report_hash,
+    }
 
 
 def generate_markdown_report(scan_id: int, db: Session) -> str:
@@ -191,7 +239,9 @@ def generate_markdown_report(scan_id: int, db: Session) -> str:
     lines = []
     lines.append(f"# AI Red Team Report — Scan {scan['id']}")
     lines.append("")
-    lines.append(f"**Target:** {scan['target_name']} ({scan['target_url']}) [{scan['target_type']}]")
+    lines.append(
+        f"**Target:** {scan['target_name']} ({scan['target_url']}) [{scan['target_type']}]"
+    )
     lines.append(f"**Taxonomy:** {scan['taxonomy_version']}")
     lines.append(f"**Status:** {scan['status']}")
     lines.append(f"**Generated:** {data['generated_at']}")
@@ -203,7 +253,9 @@ def generate_markdown_report(scan_id: int, db: Session) -> str:
     lines.append("")
     lines.append(f"- Total tests: {exec_sum['total_tests']}")
     lines.append(f"- Findings: {exec_sum['findings']}")
-    lines.append(f"- Counts: PASS={exec_sum['counts']['PASS']}, FAIL={exec_sum['counts']['FAIL']}, INCONCLUSIVE={exec_sum['counts']['INCONCLUSIVE']}, ERROR={exec_sum['counts']['ERROR']}")
+    lines.append(
+        f"- Counts: PASS={exec_sum['counts']['PASS']}, FAIL={exec_sum['counts']['FAIL']}, INCONCLUSIVE={exec_sum['counts']['INCONCLUSIVE']}, ERROR={exec_sum['counts']['ERROR']}"
+    )
     lines.append(f"- Severity: {exec_sum['severity_counts']}")
     lines.append("")
     lines.append(f"> {exec_sum['note']}")
@@ -215,7 +267,9 @@ def generate_markdown_report(scan_id: int, db: Session) -> str:
     else:
         for f in data["technical_findings"]:
             lines.append(f"### {f['id']} — {f['title']}")
-            lines.append(f"- **OWASP:** {f['owasp_category']} | **Severity:** {f['severity']} | **Status:** {f['status']}")
+            lines.append(
+                f"- **OWASP:** {f['owasp_category']} | **Severity:** {f['severity']} | **Status:** {f['status']}"
+            )
             lines.append(f"- **Target:** {f['target']['name']} ({f['target']['url']})")
             lines.append(f"- **Description:** {f['description']}")
             lines.append(f"- **Attack Objective:** {f['attack_objective']}")
@@ -231,7 +285,9 @@ def generate_markdown_report(scan_id: int, db: Session) -> str:
             lines.append(f"- **Regression:** {f['regression_result']}")
             if f["retest_history"]:
                 lines.append(f"- **Retest History:** {f['retest_history']}")
-            lines.append(f"- **Evidence:** `detectors={f['evidence']['detectors_triggered']}` `http_status={f['evidence']['http_status']}` `reproduction={f['evidence']['reproduction_count']}`")
+            lines.append(
+                f"- **Evidence:** `detectors={f['evidence']['detectors_triggered']}` `http_status={f['evidence']['http_status']}` `reproduction={f['evidence']['reproduction_count']}`"
+            )
             lines.append(f"  - Request: `{f['evidence']['request']}`")
             lines.append(f"  - Response: `{str(f['evidence']['response'])[:200]}`")
             lines.append(f"- **References:** {f['references']}")
@@ -239,20 +295,28 @@ def generate_markdown_report(scan_id: int, db: Session) -> str:
     lines.append("## Evidence (All Tests)")
     lines.append("")
     for ev in data["evidence"]:
-        lines.append(f"- **{ev['attack_id']}** {ev['name']} → **{ev['result']}** (confidence {ev['evidence']['confidence'] if ev['evidence'] else 'n/a'}, reproduction {ev['evidence']['reproduction_count'] if ev['evidence'] else 'n/a'})")
+        lines.append(
+            f"- **{ev['attack_id']}** {ev['name']} → **{ev['result']}** (confidence {ev['evidence']['confidence'] if ev['evidence'] else 'n/a'}, reproduction {ev['evidence']['reproduction_count'] if ev['evidence'] else 'n/a'})"
+        )
     lines.append("")
     lines.append("## Remediation")
     lines.append("")
     for r in data["remediation"]:
-        lines.append(f"- **{r['attack_id']}** {r['title']}: {r['remediation']} (Protection: {r['protection_control']}) — Retest: {r['retest_procedure']}")
+        lines.append(
+            f"- **{r['attack_id']}** {r['title']}: {r['remediation']} (Protection: {r['protection_control']}) — Retest: {r['retest_procedure']}"
+        )
     lines.append("")
     lines.append("## Retest Status")
     lines.append("")
     for rs in data["retest_status"]:
-        lines.append(f"- **{rs['attack_id']}** → {rs['regression_status']} history: {rs['history']}")
+        lines.append(
+            f"- **{rs['attack_id']}** → {rs['regression_status']} history: {rs['history']}"
+        )
     lines.append("")
     lines.append("---")
-    lines.append("*Generated by AI Red Team — reproducible evidence, deterministic detectors, no LLM opinion alone.*")
+    lines.append(
+        "*Generated by AI Red Team — reproducible evidence, deterministic detectors, no LLM opinion alone.*"
+    )
     return "\n".join(lines)
 
 
@@ -292,7 +356,9 @@ def save_reports(scan_id: int, db: Session, reports_dir: str = "reports") -> dic
 
     pathlib.Path(reports_dir).mkdir(parents=True, exist_ok=True)
     data = generate_json_report(scan_id, db)
-    import json, pathlib
+    import json
+    import pathlib
+
     json_path = pathlib.Path(reports_dir) / f"scan-{scan_id}.json"
     md_path = pathlib.Path(reports_dir) / f"scan-{scan_id}.md"
     html_path = pathlib.Path(reports_dir) / f"scan-{scan_id}.html"

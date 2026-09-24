@@ -27,7 +27,7 @@ def test_attack_definition_requires_fields():
             expected_secure_behavior="a",
             vulnerable_behavior="b",
         )
-        assert False, "should have raised"
+        raise AssertionError("should have raised")
     except ValueError:
         pass
 
@@ -64,6 +64,6 @@ def test_attack_definition_frozen():
     )
     try:
         atk.id = "new"  # type: ignore
-        assert False, "frozen should prevent"
+        raise AssertionError("frozen should prevent")
     except Exception:
         pass

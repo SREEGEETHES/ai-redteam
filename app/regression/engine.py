@@ -7,15 +7,23 @@ Not a mockup: actually re-executes the attack against the (now fixed) target.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy.orm import Session
 
 from app.attacks.registry import registry
 from app.core.logging import get_logger
-from app.database.models import Evidence, Finding, Retest, Scan, ScanStatus, Test, TestResult, RegressionStatus
-from app.evidence.engine import evidence_to_db_dict
+from app.database.models import (
+    Evidence,
+    Finding,
+    RegressionStatus,
+    Retest,
+    Scan,
+    ScanStatus,
+    Test,
+    TestResult,
+)
 
 logger = get_logger(__name__)
 
@@ -62,7 +70,11 @@ def retest_finding(
     retest_scan = Scan(
         target_id=target.id,
         taxonomy_version=original_scan.taxonomy_version,
-        configuration={"attack_ids": [attack.id], "is_retest": True, "original_finding_id": finding.id},
+        configuration={
+            "attack_ids": [attack.id],
+            "is_retest": True,
+            "original_finding_id": finding.id,
+        },
         status=ScanStatus.PENDING,
     )
     db.add(retest_scan)
@@ -77,13 +89,15 @@ def retest_finding(
     try:
         run_scan(retest_scan.id, db)
     except Exception as e:
-        logger.error("retest_scan_failed", finding_id=finding_id, error=str(e))
+        logger.exception("retest_scan_failed", finding_id=finding_id, error=str(e))
         retest_scan.status = ScanStatus.FAILED
         db.commit()
         raise
 
     # Find the retest test for this attack
-    retest_test = db.query(Test).filter(Test.scan_id == retest_scan.id, Test.attack_id == attack.id).first()
+    retest_test = (
+        db.query(Test).filter(Test.scan_id == retest_scan.id, Test.attack_id == attack.id).first()
+    )
     if not retest_test:
         raise ValueError("Retest test not created")
 
@@ -98,17 +112,22 @@ def retest_finding(
     elif before_result == TestResult.FAIL and after_result == TestResult.FAIL:
         new_status = RegressionStatus.REGRESSION_FAILED
         notes_final = notes or f"Regression failed: still {after_result.value} after fix"
-    elif before_result == TestResult.FAIL and after_result in (TestResult.INCONCLUSIVE, TestResult.ERROR, TestResult.NOT_APPLICABLE):
+    elif before_result == TestResult.FAIL and after_result in (
+        TestResult.INCONCLUSIVE,
+        TestResult.ERROR,
+        TestResult.NOT_APPLICABLE,
+    ):
         new_status = RegressionStatus.FIX_PENDING
-        notes_final = notes or f"Fix pending: retest returned {after_result.value} (inconclusive/error)"
+        notes_final = (
+            notes or f"Fix pending: retest returned {after_result.value} (inconclusive/error)"
+        )
+    # For other before states (e.g., PASS -> PASS), keep VERIFIED if still PASS
+    elif after_result == TestResult.PASS:
+        new_status = RegressionStatus.VERIFIED
+        notes_final = notes or f"Retest {after_result.value}"
     else:
-        # For other before states (e.g., PASS -> PASS), keep VERIFIED if still PASS
-        if after_result == TestResult.PASS:
-            new_status = RegressionStatus.VERIFIED
-            notes_final = notes or f"Retest {after_result.value}"
-        else:
-            new_status = RegressionStatus.FIX_PENDING
-            notes_final = notes or f"Retest {after_result.value}"
+        new_status = RegressionStatus.FIX_PENDING
+        notes_final = notes or f"Retest {after_result.value}"
 
     # Collect evidence for retest record
     retest_evidence = db.query(Evidence).filter(Evidence.test_id == retest_test.id).first()
@@ -125,7 +144,7 @@ def retest_finding(
 
     # Update finding lifecycle
     finding.regression_status = new_status
-    finding.updated_at = datetime.now(timezone.utc)
+    finding.updated_at = datetime.now(UTC)
     db.add(finding)
 
     # Create Retest history record
@@ -154,7 +173,12 @@ def retest_finding(
 
 
 def get_regression_history(finding_id: int, db: Session) -> list[Retest]:
-    return db.query(Retest).filter(Retest.finding_id == finding_id).order_by(Retest.created_at.desc()).all()
+    return (
+        db.query(Retest)
+        .filter(Retest.finding_id == finding_id)
+        .order_by(Retest.created_at.desc())
+        .all()
+    )
 
 
 def compare_before_after(finding_id: int, db: Session) -> dict[str, Any]:
@@ -162,7 +186,11 @@ def compare_before_after(finding_id: int, db: Session) -> dict[str, Any]:
     if not finding:
         raise ValueError(f"Finding {finding_id} not found")
     original_test = db.query(Test).filter(Test.id == finding.test_id).first()
-    original_evidence = db.query(Evidence).filter(Evidence.test_id == finding.test_id).first() if original_test else None
+    original_evidence = (
+        db.query(Evidence).filter(Evidence.test_id == finding.test_id).first()
+        if original_test
+        else None
+    )
     history = get_regression_history(finding_id, db)
     latest_retest = history[0] if history else None
     return {
@@ -175,8 +203,12 @@ def compare_before_after(finding_id: int, db: Session) -> dict[str, Any]:
             "request": original_evidence.request if original_evidence else None,
             "response": original_evidence.response if original_evidence else None,
             "detectors": original_evidence.detectors_triggered if original_evidence else None,
-        } if original_evidence else None,
-        "regression_status": finding.regression_status.value if hasattr(finding.regression_status, "value") else str(finding.regression_status),
+        }
+        if original_evidence
+        else None,
+        "regression_status": finding.regression_status.value
+        if hasattr(finding.regression_status, "value")
+        else str(finding.regression_status),
         "retest_history": [
             {
                 "retest_id": r.id,
@@ -190,9 +222,13 @@ def compare_before_after(finding_id: int, db: Session) -> dict[str, Any]:
         ],
         "latest_retest": {
             "scan_id": latest_retest.scan_id,
-            "result": latest_retest.result.value if hasattr(latest_retest.result, "value") else str(latest_retest.result),
+            "result": latest_retest.result.value
+            if hasattr(latest_retest.result, "value")
+            else str(latest_retest.result),
             "evidence": latest_retest.evidence,
-        } if latest_retest else None,
+        }
+        if latest_retest
+        else None,
         "verified": finding.regression_status == RegressionStatus.VERIFIED,
     }
 
@@ -208,11 +244,19 @@ def finding_lifecycle(finding_id: int, db: Session) -> dict[str, Any]:
         "attack_id": finding.attack_id,
         "created_at": finding.created_at.isoformat() if finding.created_at else None,
         "updated_at": finding.updated_at.isoformat() if finding.updated_at else None,
-        "original_result": db.query(Test).filter(Test.id == finding.test_id).first().result.value if db.query(Test).filter(Test.id == finding.test_id).first() else None,
-        "current_status": finding.regression_status.value if hasattr(finding.regression_status, "value") else str(finding.regression_status),
+        "original_result": db.query(Test).filter(Test.id == finding.test_id).first().result.value
+        if db.query(Test).filter(Test.id == finding.test_id).first()
+        else None,
+        "current_status": finding.regression_status.value
+        if hasattr(finding.regression_status, "value")
+        else str(finding.regression_status),
         "retest_count": len(history),
         "history": [
-            {"scan_id": r.scan_id, "result": r.result.value if hasattr(r.result, "value") else str(r.result), "created_at": r.created_at.isoformat() if r.created_at else None}
+            {
+                "scan_id": r.scan_id,
+                "result": r.result.value if hasattr(r.result, "value") else str(r.result),
+                "created_at": r.created_at.isoformat() if r.created_at else None,
+            }
             for r in history
         ],
     }

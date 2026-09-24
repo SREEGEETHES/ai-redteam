@@ -22,7 +22,7 @@ def configure_logging(log_level: str = "INFO", log_format: str = "json") -> None
         formatter = structlog.dev.ConsoleRenderer()
 
     structlog.configure(
-        processors=shared_processors + [formatter],
+        processors=[*shared_processors, formatter],
         wrapper_class=structlog.stdlib.BoundLogger,
         logger_factory=structlog.stdlib.LoggerFactory(),
         cache_logger_on_first_use=True,

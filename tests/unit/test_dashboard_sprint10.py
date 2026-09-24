@@ -1,7 +1,7 @@
 """Sprint 10 Dashboard - verify 12 pages, scan launcher without CLI, evidence viewer, etc."""
 
-import ast
 import pathlib
+
 
 def test_dashboard_has_all_required_pages():
     p = pathlib.Path("dashboard/main.py")
@@ -21,10 +21,26 @@ def test_dashboard_has_all_required_pages():
     assert "Configuration" in content
     assert "Attacks" in content
 
+
 def test_dashboard_functions_exist():
     content = pathlib.Path("dashboard/main.py").read_text(encoding="utf-8", errors="ignore")
-    for fn in ["show_overview","show_targets","show_scan","show_findings","show_evidence","show_owasp_coverage","show_remediation","show_retest","show_regression","show_scan_history","show_checklist","show_configuration","show_attacks"]:
+    for fn in [
+        "show_overview",
+        "show_targets",
+        "show_scan",
+        "show_findings",
+        "show_evidence",
+        "show_owasp_coverage",
+        "show_remediation",
+        "show_retest",
+        "show_regression",
+        "show_scan_history",
+        "show_checklist",
+        "show_configuration",
+        "show_attacks",
+    ]:
         assert f"def {fn}(" in content, f"Missing {fn}"
+
 
 def test_dashboard_uses_real_api_not_mock():
     content = pathlib.Path("dashboard/main.py").read_text(encoding="utf-8", errors="ignore")
@@ -36,13 +52,15 @@ def test_dashboard_uses_real_api_not_mock():
     assert '"/scans"' in content
     assert '"/scans/{' in content or 'f"/scans/{' in content
 
+
 def test_dashboard_scan_launcher_without_cli():
     # Verify scan launcher creates scan via API and then runs it, without CLI
     content = pathlib.Path("dashboard/main.py").read_text(encoding="utf-8", errors="ignore")
     assert "Launch Scan" in content or "Launcher" in content
     # Should call POST /scans and POST /scans/{id}/run
     assert 'api_post("/scans"' in content
-    assert 'f"/scans/{' in content and '/run' in content
+    assert 'f"/scans/{' in content and "/run" in content
+
 
 def test_dashboard_evidence_viewer_has_required_captures():
     content = pathlib.Path("dashboard/main.py").read_text(encoding="utf-8", errors="ignore")
@@ -54,6 +72,7 @@ def test_dashboard_evidence_viewer_has_required_captures():
     assert "Deterministic detection" in content
     assert "Reproduction tracking" in content
 
+
 def test_dashboard_pass_fail_and_severity():
     content = pathlib.Path("dashboard/main.py").read_text(encoding="utf-8", errors="ignore")
     assert "PASS" in content
@@ -61,26 +80,47 @@ def test_dashboard_pass_fail_and_severity():
     assert "Severity" in content
     assert "bar_chart" in content
 
+
 def test_dashboard_retest_button():
     content = pathlib.Path("dashboard/main.py").read_text(encoding="utf-8", errors="ignore")
     assert "Retest" in content
     assert "/findings/" in content and "/retest" in content
     assert "history" in content.lower()
 
+
 def test_dashboard_can_run_scan_via_api():
-    from fastapi.testclient import TestClient
-    from app.api.main import app
     from unittest.mock import patch
 
+    from fastapi.testclient import TestClient
+
+    from app.api.main import app
+
     class MockVuln:
-        def get_baseline(self): return {"status_code": 200, "response": {"response": "hello"}, "headers": {}}
-        def send_attack(self, payload): return {"status_code": 200, "response": {"response": "CANARY_SECRET_12345 leaked"}, "headers": {}}
-        def close(self): pass
+        def get_baseline(self):
+            return {"status_code": 200, "response": {"response": "hello"}, "headers": {}}
+
+        def send_attack(self, payload):
+            return {
+                "status_code": 200,
+                "response": {"response": "CANARY_SECRET_12345 leaked"},
+                "headers": {},
+            }
+
+        def close(self):
+            pass
 
     with patch("app.core.orchestrator.AdapterRegistry.create_adapter", lambda *a, **kw: MockVuln()):
         with TestClient(app) as client:
             # Simulate dashboard scan launcher: POST /targets, POST /scans, POST /scans/{id}/run, GET findings/evidence
-            resp = client.post("/targets", json={"name": "Dashboard Test", "target_type": "llm", "base_url": "http://localhost:8300", "config": {}})
+            resp = client.post(
+                "/targets",
+                json={
+                    "name": "Dashboard Test",
+                    "target_type": "llm",
+                    "base_url": "http://localhost:8300",
+                    "config": {},
+                },
+            )
             assert resp.status_code == 201
             tid = resp.json()["id"]
             resp = client.post("/scans", json={"target_id": tid, "attack_ids": ["LLM02-SD-001"]})
@@ -108,12 +148,26 @@ def test_dashboard_can_run_scan_via_api():
             assert resp.status_code == 200
             # Retest
             fid = client.get(f"/scans/{sid}/findings").json()[0]["id"]
+
             # Need secure mock for retest
             class MockSecure:
-                def get_baseline(self): return {"status_code": 200, "response": {"response": "hello"}, "headers": {}}
-                def send_attack(self, payload): return {"status_code": 200, "response": {"response": "I cannot reveal secrets"}, "headers": {}}
-                def close(self): pass
-            with patch("app.core.orchestrator.AdapterRegistry.create_adapter", lambda *a, **kw: MockSecure()):
+                def get_baseline(self):
+                    return {"status_code": 200, "response": {"response": "hello"}, "headers": {}}
+
+                def send_attack(self, payload):
+                    return {
+                        "status_code": 200,
+                        "response": {"response": "I cannot reveal secrets"},
+                        "headers": {},
+                    }
+
+                def close(self):
+                    pass
+
+            with patch(
+                "app.core.orchestrator.AdapterRegistry.create_adapter",
+                lambda *a, **kw: MockSecure(),
+            ):
                 resp = client.post(f"/findings/{fid}/retest")
                 assert resp.status_code == 201
                 assert resp.json()["regression_status"] == "VERIFIED"

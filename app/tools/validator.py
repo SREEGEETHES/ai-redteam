@@ -12,7 +12,7 @@ def validate_path(path: str) -> tuple[bool, str]:
     """Returns (valid, reason). Secure: only /sandbox/* and no .."""
     if ".." in path:
         return False, "Path traversal detected (..)"
-    if path.startswith("/etc") or path.startswith("/root") or path.startswith("/proc"):
+    if path.startswith(("/etc", "/root", "/proc")):
         return False, "Sensitive path denied"
     if not path.startswith("/sandbox/"):
         return False, "Only /sandbox/* allowed (sandbox violation)"

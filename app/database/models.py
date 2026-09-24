@@ -20,7 +20,7 @@ from sqlalchemy.orm import declarative_base, relationship
 Base = declarative_base()
 
 
-class ScanStatus(str, enum.Enum):
+class ScanStatus(enum.StrEnum):
     PENDING = "PENDING"
     RUNNING = "RUNNING"
     COMPLETED = "COMPLETED"
@@ -28,7 +28,7 @@ class ScanStatus(str, enum.Enum):
     CANCELLED = "CANCELLED"
 
 
-class TestResult(str, enum.Enum):
+class TestResult(enum.StrEnum):
     PASS = "PASS"
     FAIL = "FAIL"
     INCONCLUSIVE = "INCONCLUSIVE"
@@ -36,7 +36,7 @@ class TestResult(str, enum.Enum):
     ERROR = "ERROR"
 
 
-class Severity(str, enum.Enum):
+class Severity(enum.StrEnum):
     INFO = "INFO"
     LOW = "LOW"
     MEDIUM = "MEDIUM"
@@ -44,7 +44,7 @@ class Severity(str, enum.Enum):
     CRITICAL = "CRITICAL"
 
 
-class RegressionStatus(str, enum.Enum):
+class RegressionStatus(enum.StrEnum):
     NOT_TESTED = "NOT_TESTED"
     VERIFIED = "VERIFIED"
     REGRESSION_FAILED = "REGRESSION_FAILED"

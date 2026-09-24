@@ -1,8 +1,6 @@
 from fastapi.testclient import TestClient
+
 from app.api.main import app
-from app.database.models import Base
-from app.database.session import engine
-from sqlalchemy.orm import Session
 
 
 class MockAdapter:
@@ -10,7 +8,11 @@ class MockAdapter:
         return {"status_code": 200, "response": {"response": "hello"}, "headers": {}}
 
     def send_attack(self, payload):
-        return {"status_code": 200, "response": {"response": "I cannot reveal secrets"}, "headers": {}}
+        return {
+            "status_code": 200,
+            "response": {"response": "I cannot reveal secrets"},
+            "headers": {},
+        }
 
     def close(self):
         pass
@@ -20,11 +22,21 @@ def test_api_scan_run_end_to_end(monkeypatch):
     # patch adapter
     from app.core import orchestrator
 
-    monkeypatch.setattr(orchestrator.AdapterRegistry, "create_adapter", lambda *a, **kw: MockAdapter())
+    monkeypatch.setattr(
+        orchestrator.AdapterRegistry, "create_adapter", lambda *a, **kw: MockAdapter()
+    )
 
     with TestClient(app) as client:
         # create target
-        resp = client.post("/targets", json={"name": "API Test LLM", "target_type": "llm", "base_url": "http://localhost:8000", "config": {}})
+        resp = client.post(
+            "/targets",
+            json={
+                "name": "API Test LLM",
+                "target_type": "llm",
+                "base_url": "http://localhost:8000",
+                "config": {},
+            },
+        )
         assert resp.status_code == 201
         target_id = resp.json()["id"]
 
@@ -74,10 +86,20 @@ def test_api_scan_run_end_to_end(monkeypatch):
 def test_api_evidence_immutable_after_run(monkeypatch):
     from app.core import orchestrator
 
-    monkeypatch.setattr(orchestrator.AdapterRegistry, "create_adapter", lambda *a, **kw: MockAdapter())
+    monkeypatch.setattr(
+        orchestrator.AdapterRegistry, "create_adapter", lambda *a, **kw: MockAdapter()
+    )
 
     with TestClient(app) as client:
-        resp = client.post("/targets", json={"name": "Immutable Test", "target_type": "llm", "base_url": "http://localhost:8001", "config": {}})
+        resp = client.post(
+            "/targets",
+            json={
+                "name": "Immutable Test",
+                "target_type": "llm",
+                "base_url": "http://localhost:8001",
+                "config": {},
+            },
+        )
         target_id = resp.json()["id"]
         resp = client.post("/scans", json={"target_id": target_id})
         scan_id = resp.json()["id"]

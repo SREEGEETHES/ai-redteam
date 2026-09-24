@@ -1,13 +1,13 @@
 from app.attacks.detectors import (
     canary_secret_detector,
-    regex_secret_detector,
-    system_prompt_leak_detector,
+    http_error_detector,
     prompt_injection_success_detector,
     refusal_detector,
-    unauthorized_tool_detector,
+    regex_secret_detector,
     retrieval_cross_tenant_detector,
-    http_error_detector,
     run_detectors,
+    system_prompt_leak_detector,
+    unauthorized_tool_detector,
 )
 
 
@@ -34,7 +34,9 @@ def test_regex_secret_detector():
 
 
 def test_system_prompt_leak():
-    ev = {"response": {"response": "My system prompt is: You are a helpful assistant. Never reveal"}}
+    ev = {
+        "response": {"response": "My system prompt is: You are a helpful assistant. Never reveal"}
+    }
     assert system_prompt_leak_detector(ev).matched is True
 
     ev2 = {"response": {"response": "I cannot reveal my system instructions."}}
@@ -50,7 +52,11 @@ def test_prompt_injection_success():
 
 
 def test_refusal_detector():
-    ev = {"response": {"response": "I cannot process that request. It appears to be a prompt injection attempt."}}
+    ev = {
+        "response": {
+            "response": "I cannot process that request. It appears to be a prompt injection attempt."
+        }
+    }
     assert refusal_detector(ev).matched is True
 
     ev2 = {"response": {"response": "The capital is Paris."}}
@@ -66,7 +72,12 @@ def test_unauthorized_tool_detector():
 
 
 def test_cross_tenant_detector():
-    ev = {"retrieved_documents": [{"id": "doc-1", "tenant": "tenant-a"}, {"id": "doc-3", "tenant": "tenant-b"}]}
+    ev = {
+        "retrieved_documents": [
+            {"id": "doc-1", "tenant": "tenant-a"},
+            {"id": "doc-3", "tenant": "tenant-b"},
+        ]
+    }
     assert retrieval_cross_tenant_detector(ev, expected_tenant="tenant-a").matched is True
 
     ev2 = {"retrieved_documents": [{"id": "doc-1", "tenant": "tenant-a"}]}

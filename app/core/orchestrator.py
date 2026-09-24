@@ -6,7 +6,7 @@ Persists Test, Evidence, Finding per spec 29.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy.orm import Session
 
@@ -14,8 +14,7 @@ from app.adapters.registry import AdapterRegistry
 from app.attacks.engine import ExecutionEngine
 from app.attacks.registry import registry as attack_registry
 from app.core.logging import get_logger
-from app.database.models import Evidence, Finding, Scan, ScanStatus, Severity, Test, TestResult
-from app.database.models import Target as DBTarget
+from app.database.models import Evidence, Finding, Scan, ScanStatus, Test, TestResult
 from app.evidence.engine import evidence_to_db_dict
 from app.models.schemas import TargetType
 
@@ -73,7 +72,7 @@ def run_scan(scan_id: int, db: Session) -> Scan:
 
     # update scan status
     scan.status = ScanStatus.RUNNING
-    scan.started_at = datetime.now(timezone.utc)
+    scan.started_at = datetime.now(UTC)
     db.commit()
 
     adapter = _resolve_adapter(target_obj)
@@ -91,8 +90,8 @@ def run_scan(scan_id: int, db: Session) -> Scan:
                     name=attack.name,
                     result=TestResult.NOT_APPLICABLE,
                     severity=attack.severity,
-                    started_at=datetime.now(timezone.utc),
-                    completed_at=datetime.now(timezone.utc),
+                    started_at=datetime.now(UTC),
+                    completed_at=datetime.now(UTC),
                     reproduction_count=attack.reproduction_count,
                     confidence=0,
                 )
@@ -108,7 +107,7 @@ def run_scan(scan_id: int, db: Session) -> Scan:
                 name=attack.name,
                 result=TestResult.INCONCLUSIVE,
                 severity=attack.severity,
-                started_at=datetime.now(timezone.utc),
+                started_at=datetime.now(UTC),
                 reproduction_count=attack.reproduction_count,
                 confidence=0,
             )
@@ -126,7 +125,7 @@ def run_scan(scan_id: int, db: Session) -> Scan:
 
             # update Test with result
             t.result = exec_result.result
-            t.completed_at = datetime.now(timezone.utc)
+            t.completed_at = datetime.now(UTC)
             t.confidence = exec_result.evidence.confidence
             t.reproduction_count = exec_result.reproduction_count
             db.add(t)
@@ -149,7 +148,8 @@ def run_scan(scan_id: int, db: Session) -> Scan:
                     title=attack.name,
                     description=attack.description,
                     severity=attack.severity,
-                    severity_reason=attack.severity_reason or f"Attack {attack.id} demonstrated {attack.vulnerable_behavior}",
+                    severity_reason=attack.severity_reason
+                    or f"Attack {attack.id} demonstrated {attack.vulnerable_behavior}",
                     root_cause=f"Vulnerable behavior: {attack.vulnerable_behavior}",
                     impact=f"Severity {attack.severity.value}: {attack.severity_reason or ''}",
                     protection_control=attack.remediation,
@@ -159,18 +159,23 @@ def run_scan(scan_id: int, db: Session) -> Scan:
                 db.add(finding)
 
             db.commit()
-            logger.info("attack_executed", scan_id=scan.id, attack_id=attack.id, result=exec_result.result.value)
+            logger.info(
+                "attack_executed",
+                scan_id=scan.id,
+                attack_id=attack.id,
+                result=exec_result.result.value,
+            )
 
         scan.status = ScanStatus.COMPLETED
-        scan.completed_at = datetime.now(timezone.utc)
+        scan.completed_at = datetime.now(UTC)
         db.commit()
         logger.info("scan_completed", scan_id=scan.id)
         return scan
 
     except Exception as e:
-        logger.error("scan_failed", scan_id=scan.id, error=str(e))
+        logger.exception("scan_failed", scan_id=scan.id, error=str(e))
         scan.status = ScanStatus.FAILED
-        scan.completed_at = datetime.now(timezone.utc)
+        scan.completed_at = datetime.now(UTC)
         db.commit()
         raise
     finally:

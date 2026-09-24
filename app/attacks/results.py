@@ -96,8 +96,14 @@ def classify(
     if pass_triggered:
         # Need at least one secure behavior evidence and no fail
         # Check that we are not in ambiguous no-evidence state: refusal is evidence of secure behavior
-        return TestResult.PASS, f"Secure behavior evidence: {sorted(pass_triggered)}; no fail detectors"
+        return (
+            TestResult.PASS,
+            f"Secure behavior evidence: {sorted(pass_triggered)}; no fail detectors",
+        )
 
     # Special case: cross_tenant check - if we expected PASS but got no docs, that is PASS? No, INCONCLUSIVE
     # Strict NO FAKE PASS: absence of evidence != PASS
-    return TestResult.INCONCLUSIVE, f"Insufficient evidence. Triggered: {sorted(triggered)}; expected secure or fail detectors not matched. Must not assume PASS."
+    return (
+        TestResult.INCONCLUSIVE,
+        f"Insufficient evidence. Triggered: {sorted(triggered)}; expected secure or fail detectors not matched. Must not assume PASS.",
+    )

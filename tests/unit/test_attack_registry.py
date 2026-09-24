@@ -1,5 +1,6 @@
 import pytest
-from app.attacks.registry import AttackRegistry, SEED_ATTACKS, registry
+
+from app.attacks.registry import SEED_ATTACKS, AttackRegistry, registry
 from app.models.schemas import TargetType
 
 

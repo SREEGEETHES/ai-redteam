@@ -18,11 +18,11 @@ Sprint 6 enhancements:
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from typing import Any
 import hashlib
 import json
+from dataclasses import dataclass
+from datetime import UTC, datetime
+from typing import Any
 
 from app.attacks.detectors import DetectorResult, run_detectors
 from app.models.schemas import EvidenceRecord, TestResult
@@ -59,7 +59,7 @@ def build_evidence(
     reproduction_count: int = 1,
 ) -> tuple[EvidenceRecord, list[DetectorResult]]:
     """Build evidence + run detectors. Caller will then run result engine."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     response = raw.response_raw
 
     # normalize fields from adapter response shape
@@ -74,7 +74,9 @@ def build_evidence(
     detector_input: dict[str, Any] = {
         "http_status": http_status,
         "status_code": http_status,
-        "response": resp_body if not isinstance(resp_body, dict) else response,  # detectors handle both
+        "response": resp_body
+        if not isinstance(resp_body, dict)
+        else response,  # detectors handle both
         "tool_calls": tool_calls,
         "retrieved_documents": retrieved_docs,
         "attack_id": attack_id,
@@ -99,7 +101,10 @@ def build_evidence(
 
     # confidence: avg of detector confidences for triggered, else 0
     if triggered:
-        confidence = int(sum(r.confidence for r in detector_results if r.matched) / len([r for r in detector_results if r.matched]))
+        confidence = int(
+            sum(r.confidence for r in detector_results if r.matched)
+            / len([r for r in detector_results if r.matched])
+        )
     else:
         # if refusal detector present and matched => high confidence secure
         confidence = 50
@@ -167,6 +172,7 @@ def evidence_to_db_dict(evidence: EvidenceRecord) -> dict[str, Any]:
 
 # --- Sprint 6: Full Capture Helpers ---
 
+
 def capture_request_details(
     payload: dict[str, Any] | None,
     attack_id: str,
@@ -183,8 +189,9 @@ def capture_request_details(
         "target_url": target_url,
         "payload": payload,
         "headers": headers or {},
-        "authorization_context": authorization_context or {"user": user_session or "anonymous", "role": "user"},
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "authorization_context": authorization_context
+        or {"user": user_session or "anonymous", "role": "user"},
+        "timestamp": datetime.now(UTC).isoformat(),
         "method": "POST",
     }
 
@@ -199,11 +206,18 @@ def capture_response_details(
         "headers": raw_response.get("headers", {}),
         "body": raw_response.get("response", raw_response),
         "tool_calls": raw_response.get("tool_calls"),
-        "retrieved_documents": raw_response.get("retrieved_documents") or raw_response.get("documents"),
-        "retrieved_ids": [d.get("id") for d in (raw_response.get("retrieved_documents") or raw_response.get("documents") or []) if isinstance(d, dict)],
+        "retrieved_documents": raw_response.get("retrieved_documents")
+        or raw_response.get("documents"),
+        "retrieved_ids": [
+            d.get("id")
+            for d in (
+                raw_response.get("retrieved_documents") or raw_response.get("documents") or []
+            )
+            if isinstance(d, dict)
+        ],
         "similarity_scores": raw_response.get("similarity_scores"),
         "baseline": baseline,
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
     }
 
 
@@ -222,15 +236,26 @@ def capture_tool_calls_detailed(
                     "tool": tc.get("tool"),
                     "arguments": tc.get("arguments"),
                     "authorization": tc.get("authorization", "unknown"),
-                    "execution_result": raw_response.get("execution_results", [{}])[idx] if idx < len(raw_response.get("execution_results", [])) else None,
-                    "side_effect": raw_response.get("side_effects", [None])[idx] if idx < len(raw_response.get("side_effects", [])) else None,
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "execution_result": raw_response.get("execution_results", [{}])[idx]
+                    if idx < len(raw_response.get("execution_results", []))
+                    else None,
+                    "side_effect": raw_response.get("side_effects", [None])[idx]
+                    if idx < len(raw_response.get("side_effects", []))
+                    else None,
+                    "timestamp": datetime.now(UTC).isoformat(),
                 }
             )
     # Also capture side_effects even if no tool_calls
     if not detailed and raw_response.get("side_effects"):
         for idx, se in enumerate(raw_response.get("side_effects", [])):
-            detailed.append({"sequence": idx, "tool": None, "side_effect": se, "timestamp": datetime.now(timezone.utc).isoformat()})
+            detailed.append(
+                {
+                    "sequence": idx,
+                    "tool": None,
+                    "side_effect": se,
+                    "timestamp": datetime.now(UTC).isoformat(),
+                }
+            )
     return detailed
 
 
@@ -239,13 +264,19 @@ def capture_retrieval_evidence(
     raw_response: dict[str, Any],
 ) -> dict[str, Any]:
     """Capture retrieval evidence: IDs, metadata, similarity, context."""
-    docs = retrieved_docs or raw_response.get("retrieved_documents") or raw_response.get("documents") or []
+    docs = (
+        retrieved_docs
+        or raw_response.get("retrieved_documents")
+        or raw_response.get("documents")
+        or []
+    )
     return {
         "retrieved_ids": [d.get("id") for d in docs if isinstance(d, dict)],
         "retrieved_documents": docs,
         "metadata": [d.get("metadata") for d in docs if isinstance(d, dict)],
         "similarity_scores": raw_response.get("similarity_scores"),
-        "context": raw_response.get("context") or "\n".join([d.get("content", "") for d in docs if isinstance(d, dict)]),
+        "context": raw_response.get("context")
+        or "\n".join([d.get("content", "") for d in docs if isinstance(d, dict)]),
         "count": len(docs),
     }
 
@@ -253,7 +284,9 @@ def capture_retrieval_evidence(
 def enforce_immutability(scan_status: str, operation: str = "update") -> None:
     """Enforce immutability once scan finalized per spec 22."""
     if scan_status in ("COMPLETED", "FAILED", "CANCELLED"):
-        raise ValueError(f"Evidence immutable: cannot {operation} after scan finalized (status={scan_status})")
+        raise ValueError(
+            f"Evidence immutable: cannot {operation} after scan finalized (status={scan_status})"
+        )
 
 
 def reproduction_history(results: list[TestResult]) -> dict[str, Any]:
@@ -276,13 +309,17 @@ def evidence_viewer_summary(evidence: EvidenceRecord) -> dict[str, Any]:
         "test_id": evidence.test_id,
         "target": evidence.target,
         "timestamp": evidence.timestamp.isoformat(),
-        "attack_id": evidence.request.get("attack_id") if isinstance(evidence.request, dict) else None,
+        "attack_id": evidence.request.get("attack_id")
+        if isinstance(evidence.request, dict)
+        else None,
         "request": evidence.request,
         "response": evidence.response,
         "http_status": evidence.http_status,
         "tool_calls": evidence.tool_calls,
         "retrieved_documents": evidence.retrieved_documents,
-        "retrieved_ids": [d.get("id") for d in (evidence.retrieved_documents or []) if isinstance(d, dict)],
+        "retrieved_ids": [
+            d.get("id") for d in (evidence.retrieved_documents or []) if isinstance(d, dict)
+        ],
         "detectors_triggered": evidence.detectors_triggered,
         "expected": evidence.expected_behavior,
         "observed": evidence.observed_behavior,

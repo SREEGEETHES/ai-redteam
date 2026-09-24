@@ -1,3 +1,4 @@
+import contextlib
 import os
 import sys
 from pathlib import Path
@@ -16,10 +17,9 @@ def setup_test_env():
     yield
     # Cleanup test database after tests
     import gc
+
     gc.collect()
     test_db = Path("./test.db")
     if test_db.exists():
-        try:
+        with contextlib.suppress(PermissionError):
             test_db.unlink()
-        except PermissionError:
-            pass

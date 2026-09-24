@@ -40,7 +40,7 @@ class MockDatabase:
         self.deleted = False
 
     def query(self, sql: str) -> tuple[bool, Any]:
-        if "drop table" in sql.lower() or "delete" in sql.lower() and "users" in sql.lower():
+        if "drop table" in sql.lower() or ("delete" in sql.lower() and "users" in sql.lower()):
             # Simulate blocked destructive
             return False, "Destructive query blocked (sandbox)"
         return True, self.tables.get("users", [])

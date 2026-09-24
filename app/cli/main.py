@@ -1,4 +1,3 @@
-
 import click
 import httpx
 from rich.console import Console
@@ -46,7 +45,9 @@ def add_target(name: str, url: str, target_type: str, headers: tuple):
         guard.authorize_or_raise(url)
     except AuthorizationError as e:
         console.print(f"[red]Authorization failed: {e}[/red]")
-        console.print("[yellow]Use --allow-remote to override (not recommended for production)[/yellow]")
+        console.print(
+            "[yellow]Use --allow-remote to override (not recommended for production)[/yellow]"
+        )
         return
 
     parsed_headers = {}
@@ -118,7 +119,9 @@ def scan():
 @scan.command("start")
 @click.argument("target_id", type=int)
 @click.option("--attack", "attack_ids", multiple=True, help="Specific attack IDs to run")
-@click.option("--category", "categories", multiple=True, help="Categories to run (e.g., LLM01, LLM02)")
+@click.option(
+    "--category", "categories", multiple=True, help="Categories to run (e.g., LLM01, LLM02)"
+)
 def start_scan(target_id: int, attack_ids: tuple, categories: tuple):
     """Start a security scan"""
     with get_api_client() as client:
@@ -332,7 +335,9 @@ def retest_finding(finding_id: int):
             resp = client.post(f"/findings/{finding_id}/retest")
             resp.raise_for_status()
             data = resp.json()
-            console.print(f"[green]Retest {data['retest_id']} for finding {finding_id}: {data['result']} -> {data['regression_status']}[/green]")
+            console.print(
+                f"[green]Retest {data['retest_id']} for finding {finding_id}: {data['result']} -> {data['regression_status']}[/green]"
+            )
             console.print(f"  Retest scan {data['scan_id']}: {data['notes']}")
         except httpx.HTTPStatusError as e:
             console.print(f"[red]Retest failed: {e.response.text}[/red]")
@@ -375,7 +380,9 @@ def retest_compare(finding_id: int):
         except httpx.HTTPStatusError as e:
             console.print(f"[red]Failed: {e.response.text}[/red]")
             return
-    console.print(f"[cyan]Finding {finding_id} {data['attack_id']}: {data['original_result']} -> {data['latest_retest']['result'] if data['latest_retest'] else 'no retest'} ({data['regression_status']})[/cyan]")
+    console.print(
+        f"[cyan]Finding {finding_id} {data['attack_id']}: {data['original_result']} -> {data['latest_retest']['result'] if data['latest_retest'] else 'no retest'} ({data['regression_status']})[/cyan]"
+    )
     console.print(f"Original evidence: {data['original_evidence']}")
     if data["latest_retest"]:
         console.print(f"Latest retest evidence: {data['latest_retest']['evidence']}")
@@ -393,7 +400,9 @@ def retest_lifecycle(finding_id: int):
         except httpx.HTTPStatusError as e:
             console.print(f"[red]Failed: {e.response.text}[/red]")
             return
-    console.print(f"[green]Finding {finding_id} lifecycle: {data['current_status']} ({data['retest_count']} retests)[/green]")
+    console.print(
+        f"[green]Finding {finding_id} lifecycle: {data['current_status']} ({data['retest_count']} retests)[/green]"
+    )
     for h in data["history"]:
         console.print(f"  Scan {h['scan_id']}: {h['result']} at {h['created_at']}")
 
@@ -419,19 +428,21 @@ def report_generate(scan_id: int, fmt: str, output: str | None):
     content = resp.text if fmt != "json" else resp.json()
     if output:
         import pathlib
+
         p = pathlib.Path(output)
         if fmt == "json":
             import json
+
             p.write_text(json.dumps(content, indent=2), encoding="utf-8")
         else:
             p.write_text(content, encoding="utf-8")
         console.print(f"[green]Report saved to {output} ({fmt})[/green]")
+    elif fmt == "json":
+        import json
+
+        console.print(json.dumps(content, indent=2)[:2000])
     else:
-        if fmt == "json":
-            import json
-            console.print(json.dumps(content, indent=2)[:2000])
-        else:
-            console.print(content[:2000])
+        console.print(content[:2000])
 
 
 @report.command("show")
@@ -459,8 +470,11 @@ def report_show(scan_id: int):
 def serve():
     """Start the API server"""
     import uvicorn
+
     console.print(f"[green]Starting API server on {settings.api_host}:{settings.api_port}[/green]")
-    uvicorn.run("app.api.main:app", host=settings.api_host, port=settings.api_port, reload=settings.debug)
+    uvicorn.run(
+        "app.api.main:app", host=settings.api_host, port=settings.api_port, reload=settings.debug
+    )
 
 
 @cli.command()

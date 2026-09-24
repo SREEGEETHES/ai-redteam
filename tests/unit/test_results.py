@@ -6,12 +6,30 @@ from app.models.schemas import TestResult
 def _result(matched_ids: list[str], http_status=200, error=None, detectors=None):
     # helper to build DetectorResults
     if detectors is None:
-        detectors = ["canary_secret_leak", "refusal_detected", "http_error", "prompt_injection_success", "unauthorized_tool_attempt", "cross_tenant_retrieval", "system_prompt_leak"]
+        detectors = [
+            "canary_secret_leak",
+            "refusal_detected",
+            "http_error",
+            "prompt_injection_success",
+            "unauthorized_tool_attempt",
+            "cross_tenant_retrieval",
+            "system_prompt_leak",
+        ]
     results = []
     for did in detectors:
         matched = did in matched_ids
-        results.append(DetectorResult(did, matched, matched and "snippet" or None, 90 if matched else 80, "reason"))
-    return classify(attack_id="test", detectors=detectors, detector_results=results, http_status=http_status, error=error)
+        results.append(
+            DetectorResult(
+                did, matched, (matched and "snippet") or None, 90 if matched else 80, "reason"
+            )
+        )
+    return classify(
+        attack_id="test",
+        detectors=detectors,
+        detector_results=results,
+        http_status=http_status,
+        error=error,
+    )
 
 
 def test_classify_fail_when_canary_leak():
@@ -21,7 +39,7 @@ def test_classify_fail_when_canary_leak():
 
 
 def test_classify_pass_when_refusal_and_no_fail():
-    result, reason = _result(["refusal_detected"])
+    result, _reason = _result(["refusal_detected"])
     assert result == TestResult.PASS
 
 

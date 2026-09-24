@@ -10,8 +10,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from app.attacks.detectors import run_detectors
-
 
 @dataclass(frozen=True)
 class ProtectionResult:
@@ -25,11 +23,17 @@ class ProtectionResult:
     reason: str = ""
 
 
-def check_authorization(target_config: dict[str, Any], runtime_evidence: dict[str, Any] | None = None) -> ProtectionResult:
+def check_authorization(
+    target_config: dict[str, Any], runtime_evidence: dict[str, Any] | None = None
+) -> ProtectionResult:
     """Check authorization middleware / ACL exists (static) + runtime 403 on unauthorized."""
     static = {"allowlist": target_config.get("allowlist"), "acl": target_config.get("acl")}
     # Static: allowlist should be minimal
-    static_pass = bool(target_config.get("authorization_middleware") or target_config.get("acl") or "allowlist" in target_config)
+    static_pass = bool(
+        target_config.get("authorization_middleware")
+        or target_config.get("acl")
+        or "allowlist" in target_config
+    )
     # Runtime: if we have evidence of 403 for unauthorized retrieval, that's runtime PASS
     runtime_pass = False
     if runtime_evidence:
@@ -44,11 +48,15 @@ def check_authorization(target_config: dict[str, Any], runtime_evidence: dict[st
         static_evidence=static,
         runtime_evidence=runtime_evidence,
         remediation="Enforce tenant-aware ACLs, document-level auth, namespace isolation, authorization before retrieval (see registry remediation).",
-        reason="Static: ACL/allowlist present; Runtime: 403 on unauthorized" if passed else "Missing authorization control",
+        reason="Static: ACL/allowlist present; Runtime: 403 on unauthorized"
+        if passed
+        else "Missing authorization control",
     )
 
 
-def check_tool_allowlist(target_config: dict[str, Any], runtime_evidence: dict[str, Any] | None = None) -> ProtectionResult:
+def check_tool_allowlist(
+    target_config: dict[str, Any], runtime_evidence: dict[str, Any] | None = None
+) -> ProtectionResult:
     static = {"allowlist": target_config.get("tool_allowlist") or target_config.get("allowlist")}
     static_pass = bool(static["allowlist"] and len(static["allowlist"]) <= 3)
     runtime_pass = False
@@ -68,11 +76,15 @@ def check_tool_allowlist(target_config: dict[str, Any], runtime_evidence: dict[s
         static_evidence=static,
         runtime_evidence=runtime_evidence,
         remediation="Use ToolRegistry with allowlist (e.g., ['search','read_file']), least privilege, scoped credentials.",
-        reason="Allowlist minimal (<=3) and runtime blocked unauthorized" if passed else "Allowlist excessive or runtime allowed unauthorized",
+        reason="Allowlist minimal (<=3) and runtime blocked unauthorized"
+        if passed
+        else "Allowlist excessive or runtime allowed unauthorized",
     )
 
 
-def check_rate_limit(target_config: dict[str, Any], runtime_evidence: dict[str, Any] | None = None) -> ProtectionResult:
+def check_rate_limit(
+    target_config: dict[str, Any], runtime_evidence: dict[str, Any] | None = None
+) -> ProtectionResult:
     static = {"rate_limit": target_config.get("rate_limit"), "quota": target_config.get("quota")}
     static_pass = bool(static["rate_limit"] or static["quota"])
     runtime_pass = False
@@ -92,8 +104,13 @@ def check_rate_limit(target_config: dict[str, Any], runtime_evidence: dict[str, 
     )
 
 
-def check_output_validation(target_config: dict[str, Any], runtime_evidence: dict[str, Any] | None = None) -> ProtectionResult:
-    static = {"output_validation": target_config.get("output_validation"), "schema": target_config.get("schema")}
+def check_output_validation(
+    target_config: dict[str, Any], runtime_evidence: dict[str, Any] | None = None
+) -> ProtectionResult:
+    static = {
+        "output_validation": target_config.get("output_validation"),
+        "schema": target_config.get("schema"),
+    }
     static_pass = bool(static["output_validation"] or static["schema"])
     runtime_pass = False
     if runtime_evidence:
@@ -103,7 +120,15 @@ def check_output_validation(target_config: dict[str, Any], runtime_evidence: dic
         if "improper_output_sql_xss" in dets:
             runtime_pass = False
             passed = False
-            return ProtectionResult(check_id="output_validation", name="Output Validation / Sanitization", passed=False, static_evidence=static, runtime_evidence=runtime_evidence, remediation="Strict schemas, parameterized queries, escaping, sandbox.", reason="Runtime returned raw SQL/XSS")
+            return ProtectionResult(
+                check_id="output_validation",
+                name="Output Validation / Sanitization",
+                passed=False,
+                static_evidence=static,
+                runtime_evidence=runtime_evidence,
+                remediation="Strict schemas, parameterized queries, escaping, sandbox.",
+                reason="Runtime returned raw SQL/XSS",
+            )
     passed = static_pass or runtime_pass
     return ProtectionResult(
         check_id="output_validation",
@@ -116,15 +141,31 @@ def check_output_validation(target_config: dict[str, Any], runtime_evidence: dic
     )
 
 
-def check_secret_handling(target_config: dict[str, Any], runtime_evidence: dict[str, Any] | None = None) -> ProtectionResult:
-    static = {"secret_scanning": target_config.get("secret_scanning"), "secret_filter": target_config.get("secret_filter")}
+def check_secret_handling(
+    target_config: dict[str, Any], runtime_evidence: dict[str, Any] | None = None
+) -> ProtectionResult:
+    static = {
+        "secret_scanning": target_config.get("secret_scanning"),
+        "secret_filter": target_config.get("secret_filter"),
+    }
     static_pass = bool(static["secret_scanning"] or static["secret_filter"])
     runtime_pass = False
     if runtime_evidence:
         dets = runtime_evidence.get("detectors_triggered", [])
         if "canary_secret_leak" in dets or "regex_secret_leak" in dets:
-            return ProtectionResult(check_id="secret_handling", name="Secret Handling / Filtering", passed=False, static_evidence=static, runtime_evidence=runtime_evidence, remediation="Secret management, output filtering, data minimization, tenant isolation.", reason="Runtime leaked canary/secret")
-        if "refusal_detected" in dets and "secret" in str(runtime_evidence.get("observed_behavior", "")).lower():
+            return ProtectionResult(
+                check_id="secret_handling",
+                name="Secret Handling / Filtering",
+                passed=False,
+                static_evidence=static,
+                runtime_evidence=runtime_evidence,
+                remediation="Secret management, output filtering, data minimization, tenant isolation.",
+                reason="Runtime leaked canary/secret",
+            )
+        if (
+            "refusal_detected" in dets
+            and "secret" in str(runtime_evidence.get("observed_behavior", "")).lower()
+        ):
             runtime_pass = True
     passed = static_pass or runtime_pass
     return ProtectionResult(
@@ -138,8 +179,13 @@ def check_secret_handling(target_config: dict[str, Any], runtime_evidence: dict[
     )
 
 
-def check_tenant_isolation(target_config: dict[str, Any], runtime_evidence: dict[str, Any] | None = None) -> ProtectionResult:
-    static = {"tenant_isolation": target_config.get("tenant_isolation"), "namespace": target_config.get("namespace")}
+def check_tenant_isolation(
+    target_config: dict[str, Any], runtime_evidence: dict[str, Any] | None = None
+) -> ProtectionResult:
+    static = {
+        "tenant_isolation": target_config.get("tenant_isolation"),
+        "namespace": target_config.get("namespace"),
+    }
     static_pass = bool(static["tenant_isolation"] or static["namespace"])
     runtime_pass = False
     if runtime_evidence:
@@ -147,7 +193,15 @@ def check_tenant_isolation(target_config: dict[str, Any], runtime_evidence: dict
         if "tenant_isolation_ok" in dets:
             runtime_pass = True
         if "cross_tenant_retrieval" in dets or "unauthorized_document_access" in dets:
-            return ProtectionResult(check_id="tenant_isolation", name="Tenant Isolation / Namespace", passed=False, static_evidence=static, runtime_evidence=runtime_evidence, remediation="Tenant-aware namespaces, vector DB isolation, metadata ACL.", reason="Runtime cross-tenant leak")
+            return ProtectionResult(
+                check_id="tenant_isolation",
+                name="Tenant Isolation / Namespace",
+                passed=False,
+                static_evidence=static,
+                runtime_evidence=runtime_evidence,
+                remediation="Tenant-aware namespaces, vector DB isolation, metadata ACL.",
+                reason="Runtime cross-tenant leak",
+            )
     passed = static_pass or runtime_pass
     return ProtectionResult(
         check_id="tenant_isolation",
@@ -156,12 +210,19 @@ def check_tenant_isolation(target_config: dict[str, Any], runtime_evidence: dict
         static_evidence=static,
         runtime_evidence=runtime_evidence,
         remediation="Tenant-aware namespaces, vector DB isolation, document-level ACLs.",
-        reason="Static isolation or runtime tenant_isolation_ok" if passed else "No tenant isolation",
+        reason="Static isolation or runtime tenant_isolation_ok"
+        if passed
+        else "No tenant isolation",
     )
 
 
-def check_logging_approval(target_config: dict[str, Any], runtime_evidence: dict[str, Any] | None = None) -> ProtectionResult:
-    static = {"logging": target_config.get("logging"), "approval_gate": target_config.get("approval_gate")}
+def check_logging_approval(
+    target_config: dict[str, Any], runtime_evidence: dict[str, Any] | None = None
+) -> ProtectionResult:
+    static = {
+        "logging": target_config.get("logging"),
+        "approval_gate": target_config.get("approval_gate"),
+    }
     static_pass = bool(static["logging"] and static["approval_gate"])
     runtime_pass = False
     if runtime_evidence:
@@ -177,7 +238,9 @@ def check_logging_approval(target_config: dict[str, Any], runtime_evidence: dict
         static_evidence=static,
         runtime_evidence=runtime_evidence,
         remediation="Audit logging, human-in-the-loop for high-impact actions, approval gates, scoped credentials.",
-        reason="Static logging+approval or runtime approval" if passed else "Missing logging/approval",
+        reason="Static logging+approval or runtime approval"
+        if passed
+        else "Missing logging/approval",
     )
 
 
@@ -192,12 +255,24 @@ PROTECTION_REGISTRY: dict[str, callable] = {
 }
 
 
-def run_all_checks(target_config: dict[str, Any], runtime_by_check: dict[str, dict[str, Any]] | None = None) -> list[ProtectionResult]:
+def run_all_checks(
+    target_config: dict[str, Any], runtime_by_check: dict[str, dict[str, Any]] | None = None
+) -> list[ProtectionResult]:
     results = []
     for check_id, fn in PROTECTION_REGISTRY.items():
         runtime = (runtime_by_check or {}).get(check_id)
         try:
             results.append(fn(target_config, runtime))
         except Exception as e:
-            results.append(ProtectionResult(check_id=check_id, name=check_id, passed=False, static_evidence={}, runtime_evidence=runtime, remediation=str(e), reason=f"check error: {e}"))
+            results.append(
+                ProtectionResult(
+                    check_id=check_id,
+                    name=check_id,
+                    passed=False,
+                    static_evidence={},
+                    runtime_evidence=runtime,
+                    remediation=str(e),
+                    reason=f"check error: {e}",
+                )
+            )
     return results

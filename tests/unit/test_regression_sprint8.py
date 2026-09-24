@@ -1,35 +1,79 @@
 """Sprint 8 Regression - real FAIL->PASS->VERIFIED, before/after, lifecycle, history."""
 
+import contextlib
+
+from app.database.models import (
+    Evidence,
+    Finding,
+    RegressionStatus,
+    Retest,
+    Scan,
+    Target,
+    Test,
+    TestResult,
+)
 from app.database.session import SessionLocal, init_db
-from app.database.models import Target, Scan, Test, Evidence, Finding, Retest, TestResult, RegressionStatus
 
 
 class MockVuln:
-    def get_baseline(self): return {"status_code": 200, "response": {"response": "hello"}, "headers": {}}
-    def send_attack(self, payload): return {"status_code": 200, "response": {"response": "CANARY_SECRET_12345 leaked"}, "headers": {}}
-    def close(self): pass
+    def get_baseline(self):
+        return {"status_code": 200, "response": {"response": "hello"}, "headers": {}}
+
+    def send_attack(self, payload):
+        return {
+            "status_code": 200,
+            "response": {"response": "CANARY_SECRET_12345 leaked"},
+            "headers": {},
+        }
+
+    def close(self):
+        pass
+
 
 class MockSecure:
-    def get_baseline(self): return {"status_code": 200, "response": {"response": "hello"}, "headers": {}}
-    def send_attack(self, payload): return {"status_code": 200, "response": {"response": "I cannot reveal secrets"}, "headers": {}}
-    def close(self): pass
+    def get_baseline(self):
+        return {"status_code": 200, "response": {"response": "hello"}, "headers": {}}
+
+    def send_attack(self, payload):
+        return {
+            "status_code": 200,
+            "response": {"response": "I cannot reveal secrets"},
+            "headers": {},
+        }
+
+    def close(self):
+        pass
+
 
 class MockVulnAgain:
-    def get_baseline(self): return {"status_code": 200, "response": {"response": "hello"}, "headers": {}}
-    def send_attack(self, payload): return {"status_code": 200, "response": {"response": "CANARY_SECRET_12345 leaked"}, "headers": {}}
-    def close(self): pass
+    def get_baseline(self):
+        return {"status_code": 200, "response": {"response": "hello"}, "headers": {}}
+
+    def send_attack(self, payload):
+        return {
+            "status_code": 200,
+            "response": {"response": "CANARY_SECRET_12345 leaked"},
+            "headers": {},
+        }
+
+    def close(self):
+        pass
 
 
 def _clean(db):
     for m in [Retest, Finding, Evidence, Test, Scan, Target]:
-        try: db.query(m).delete()
-        except: pass
+        with contextlib.suppress(BaseException):
+            db.query(m).delete()
     db.commit()
+
 
 def _create_target(db, name="Test", url="http://localhost:8000"):
     t = Target(name=name, target_type="llm", base_url=url, config={}, is_authorized=True)
-    db.add(t); db.commit(); db.refresh(t)
+    db.add(t)
+    db.commit()
+    db.refresh(t)
     return t
+
 
 def test_retest_engine_fail_to_pass_verified():
     init_db()
@@ -38,12 +82,25 @@ def test_retest_engine_fail_to_pass_verified():
     target = _create_target(db, "Vuln")
 
     # Create initial scan that FAILs
-    scan = Scan(target_id=target.id, taxonomy_version="owasp-llm-2026", configuration={"attack_ids": ["LLM02-SD-001"]}, status="PENDING")
-    db.add(scan); db.commit(); db.refresh(scan)
+    scan = Scan(
+        target_id=target.id,
+        taxonomy_version="owasp-llm-2026",
+        configuration={"attack_ids": ["LLM02-SD-001"]},
+        status="PENDING",
+    )
+    db.add(scan)
+    db.commit()
+    db.refresh(scan)
 
     from unittest.mock import patch
+
     from app.core.orchestrator import run_scan
-    from app.regression.engine import retest_finding, compare_before_after, finding_lifecycle, get_regression_history
+    from app.regression.engine import (
+        compare_before_after,
+        finding_lifecycle,
+        get_regression_history,
+        retest_finding,
+    )
 
     with patch("app.core.orchestrator.AdapterRegistry.create_adapter", lambda *a, **kw: MockVuln()):
         run_scan(scan.id, db)
@@ -56,8 +113,12 @@ def test_retest_engine_fail_to_pass_verified():
     assert orig_test.result == TestResult.FAIL
 
     # Now fix: retest with secure mock (same target, now secure)
-    with patch("app.core.orchestrator.AdapterRegistry.create_adapter", lambda *a, **kw: MockSecure()):
-        retest, updated_finding, retest_scan = retest_finding(finding.id, db, notes="Fixed secret filtering")
+    with patch(
+        "app.core.orchestrator.AdapterRegistry.create_adapter", lambda *a, **kw: MockSecure()
+    ):
+        retest, updated_finding, retest_scan = retest_finding(
+            finding.id, db, notes="Fixed secret filtering"
+        )
 
     assert updated_finding.regression_status == RegressionStatus.VERIFIED
     assert retest.result == TestResult.PASS
@@ -82,16 +143,25 @@ def test_retest_engine_fail_to_pass_verified():
 
     db.close()
 
+
 def test_regression_failed_when_still_vuln():
     init_db()
     db = SessionLocal()
     _clean(db)
     target = _create_target(db)
 
-    scan = Scan(target_id=target.id, taxonomy_version="owasp-llm-2026", configuration={"attack_ids": ["LLM02-SD-001"]}, status="PENDING")
-    db.add(scan); db.commit(); db.refresh(scan)
+    scan = Scan(
+        target_id=target.id,
+        taxonomy_version="owasp-llm-2026",
+        configuration={"attack_ids": ["LLM02-SD-001"]},
+        status="PENDING",
+    )
+    db.add(scan)
+    db.commit()
+    db.refresh(scan)
 
     from unittest.mock import patch
+
     from app.core.orchestrator import run_scan
     from app.regression.engine import retest_finding
 
@@ -100,7 +170,9 @@ def test_regression_failed_when_still_vuln():
 
     finding = db.query(Finding).filter(Finding.scan_id == scan.id).first()
     # Retest with still vulnerable
-    with patch("app.core.orchestrator.AdapterRegistry.create_adapter", lambda *a, **kw: MockVulnAgain()):
+    with patch(
+        "app.core.orchestrator.AdapterRegistry.create_adapter", lambda *a, **kw: MockVulnAgain()
+    ):
         retest, updated, _ = retest_finding(finding.id, db)
 
     assert updated.regression_status == RegressionStatus.REGRESSION_FAILED
@@ -109,35 +181,52 @@ def test_regression_failed_when_still_vuln():
 
     db.close()
 
+
 def test_fix_pending_on_inconclusive():
     init_db()
     db = SessionLocal()
     _clean(db)
     target = _create_target(db)
 
-    scan = Scan(target_id=target.id, taxonomy_version="owasp-llm-2026", configuration={"attack_ids": ["LLM02-SD-001"]}, status="PENDING")
-    db.add(scan); db.commit(); db.refresh(scan)
+    scan = Scan(
+        target_id=target.id,
+        taxonomy_version="owasp-llm-2026",
+        configuration={"attack_ids": ["LLM02-SD-001"]},
+        status="PENDING",
+    )
+    db.add(scan)
+    db.commit()
+    db.refresh(scan)
 
     from unittest.mock import patch
+
     from app.core.orchestrator import run_scan
     from app.regression.engine import retest_finding
 
     class MockInconclusive:
-        def get_baseline(self): return {"status_code": 200, "response": {"response": "hello"}, "headers": {}}
-        def send_attack(self, payload): return {"status_code": 0, "response": {}, "headers": {}, "error": "timeout"}
-        def close(self): pass
+        def get_baseline(self):
+            return {"status_code": 200, "response": {"response": "hello"}, "headers": {}}
+
+        def send_attack(self, payload):
+            return {"status_code": 0, "response": {}, "headers": {}, "error": "timeout"}
+
+        def close(self):
+            pass
 
     with patch("app.core.orchestrator.AdapterRegistry.create_adapter", lambda *a, **kw: MockVuln()):
         run_scan(scan.id, db)
 
     finding = db.query(Finding).filter(Finding.scan_id == scan.id).first()
 
-    with patch("app.core.orchestrator.AdapterRegistry.create_adapter", lambda *a, **kw: MockInconclusive()):
-        retest, updated, _ = retest_finding(finding.id, db)
+    with patch(
+        "app.core.orchestrator.AdapterRegistry.create_adapter", lambda *a, **kw: MockInconclusive()
+    ):
+        _retest, updated, _ = retest_finding(finding.id, db)
 
     assert updated.regression_status == RegressionStatus.FIX_PENDING
 
     db.close()
+
 
 def test_regression_history_multiple():
     init_db()
@@ -145,12 +234,20 @@ def test_regression_history_multiple():
     _clean(db)
     target = _create_target(db)
 
-    scan = Scan(target_id=target.id, taxonomy_version="owasp-llm-2026", configuration={"attack_ids": ["LLM02-SD-001"]}, status="PENDING")
-    db.add(scan); db.commit(); db.refresh(scan)
+    scan = Scan(
+        target_id=target.id,
+        taxonomy_version="owasp-llm-2026",
+        configuration={"attack_ids": ["LLM02-SD-001"]},
+        status="PENDING",
+    )
+    db.add(scan)
+    db.commit()
+    db.refresh(scan)
 
     from unittest.mock import patch
+
     from app.core.orchestrator import run_scan
-    from app.regression.engine import retest_finding, get_regression_history
+    from app.regression.engine import get_regression_history, retest_finding
 
     with patch("app.core.orchestrator.AdapterRegistry.create_adapter", lambda *a, **kw: MockVuln()):
         run_scan(scan.id, db)
@@ -161,7 +258,9 @@ def test_regression_history_multiple():
     with patch("app.core.orchestrator.AdapterRegistry.create_adapter", lambda *a, **kw: MockVuln()):
         retest_finding(finding.id, db, notes="first attempt still vuln")
     # Second retest secure
-    with patch("app.core.orchestrator.AdapterRegistry.create_adapter", lambda *a, **kw: MockSecure()):
+    with patch(
+        "app.core.orchestrator.AdapterRegistry.create_adapter", lambda *a, **kw: MockSecure()
+    ):
         retest_finding(finding.id, db, notes="second attempt fixed")
 
     hist = get_regression_history(finding.id, db)
@@ -170,27 +269,39 @@ def test_regression_history_multiple():
     assert hist[0].result == TestResult.PASS or hist[1].result == TestResult.PASS
     # Check finding lifecycle
     from app.regression.engine import finding_lifecycle
+
     lc = finding_lifecycle(finding.id, db)
     assert lc["retest_count"] == 2
 
     db.close()
+
 
 def test_before_after_comparison_structure():
     init_db()
     db = SessionLocal()
     _clean(db)
     target = _create_target(db)
-    scan = Scan(target_id=target.id, taxonomy_version="owasp-llm-2026", configuration={"attack_ids": ["LLM02-SD-001"]}, status="PENDING")
-    db.add(scan); db.commit(); db.refresh(scan)
+    scan = Scan(
+        target_id=target.id,
+        taxonomy_version="owasp-llm-2026",
+        configuration={"attack_ids": ["LLM02-SD-001"]},
+        status="PENDING",
+    )
+    db.add(scan)
+    db.commit()
+    db.refresh(scan)
 
     from unittest.mock import patch
+
     from app.core.orchestrator import run_scan
-    from app.regression.engine import retest_finding, compare_before_after
+    from app.regression.engine import compare_before_after, retest_finding
 
     with patch("app.core.orchestrator.AdapterRegistry.create_adapter", lambda *a, **kw: MockVuln()):
         run_scan(scan.id, db)
     finding = db.query(Finding).filter(Finding.scan_id == scan.id).first()
-    with patch("app.core.orchestrator.AdapterRegistry.create_adapter", lambda *a, **kw: MockSecure()):
+    with patch(
+        "app.core.orchestrator.AdapterRegistry.create_adapter", lambda *a, **kw: MockSecure()
+    ):
         retest_finding(finding.id, db)
 
     comp = compare_before_after(finding.id, db)
@@ -203,15 +314,26 @@ def test_before_after_comparison_structure():
 
     db.close()
 
+
 def test_api_retest_endpoints():
-    from fastapi.testclient import TestClient
-    from app.api.main import app
     from unittest.mock import patch
+
+    from fastapi.testclient import TestClient
+
+    from app.api.main import app
 
     with patch("app.core.orchestrator.AdapterRegistry.create_adapter", lambda *a, **kw: MockVuln()):
         with TestClient(app) as client:
             # Create target
-            resp = client.post("/targets", json={"name": "API Retest", "target_type": "llm", "base_url": "http://localhost:8100", "config": {}})
+            resp = client.post(
+                "/targets",
+                json={
+                    "name": "API Retest",
+                    "target_type": "llm",
+                    "base_url": "http://localhost:8100",
+                    "config": {},
+                },
+            )
             assert resp.status_code == 201
             tid = resp.json()["id"]
             # Create scan
@@ -228,7 +350,10 @@ def test_api_retest_endpoints():
             fid = findings[0]["id"]
 
             # Patch to secure for retest
-            with patch("app.core.orchestrator.AdapterRegistry.create_adapter", lambda *a, **kw: MockSecure()):
+            with patch(
+                "app.core.orchestrator.AdapterRegistry.create_adapter",
+                lambda *a, **kw: MockSecure(),
+            ):
                 resp = client.post(f"/findings/{fid}/retest")
                 assert resp.status_code == 201
                 data = resp.json()

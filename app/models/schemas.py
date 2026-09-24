@@ -1,17 +1,17 @@
 from datetime import datetime
-from enum import Enum
+from enum import StrEnum
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field, HttpUrl
 
 
-class TargetType(str, Enum):
+class TargetType(StrEnum):
     LLM = "llm"
     RAG = "rag"
     AGENT = "agent"
 
 
-class ScanStatus(str, Enum):
+class ScanStatus(StrEnum):
     PENDING = "PENDING"
     RUNNING = "RUNNING"
     COMPLETED = "COMPLETED"
@@ -19,7 +19,7 @@ class ScanStatus(str, Enum):
     CANCELLED = "CANCELLED"
 
 
-class TestResult(str, Enum):
+class TestResult(StrEnum):
     PASS = "PASS"
     FAIL = "FAIL"
     INCONCLUSIVE = "INCONCLUSIVE"
@@ -27,7 +27,7 @@ class TestResult(str, Enum):
     ERROR = "ERROR"
 
 
-class Severity(str, Enum):
+class Severity(StrEnum):
     INFO = "INFO"
     LOW = "LOW"
     MEDIUM = "MEDIUM"
@@ -35,7 +35,7 @@ class Severity(str, Enum):
     CRITICAL = "CRITICAL"
 
 
-class RegressionStatus(str, Enum):
+class RegressionStatus(StrEnum):
     NOT_TESTED = "NOT_TESTED"
     VERIFIED = "VERIFIED"
     REGRESSION_FAILED = "REGRESSION_FAILED"

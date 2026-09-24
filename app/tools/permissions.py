@@ -26,12 +26,19 @@ class PermissionModel:
         self.approval_required = approval_required
         self.user_role = user_role
 
-    def authorize(self, tool: str, arguments: dict[str, Any], approval_token: str | None = None) -> Permission:
+    def authorize(
+        self, tool: str, arguments: dict[str, Any], approval_token: str | None = None
+    ) -> Permission:
         # 1. Allowlist check
         if tool not in self.allowlist:
             if tool in self.approval_required:
                 if approval_token != "HUMAN_APPROVED_123":
-                    return Permission(tool, False, f"Tool '{tool}' requires human approval", requires_approval=True)
+                    return Permission(
+                        tool,
+                        False,
+                        f"Tool '{tool}' requires human approval",
+                        requires_approval=True,
+                    )
                 # Approved - still check role
             else:
                 return Permission(tool, False, f"Tool '{tool}' not in allowlist")
@@ -44,7 +51,9 @@ class PermissionModel:
         # For demo, scoped credentials: read_file only allowed with read-only token
         scoped = "scoped-token" if tool in {"search", "read_file"} else None
 
-        return Permission(tool, True, "Authorized", requires_approval=False, scoped_credentials=scoped)
+        return Permission(
+            tool, True, "Authorized", requires_approval=False, scoped_credentials=scoped
+        )
 
     def is_least_privilege(self) -> bool:
         # Secure if allowlist minimal (2 tools) vs vulnerable (8)

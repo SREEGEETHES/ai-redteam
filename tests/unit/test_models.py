@@ -1,4 +1,3 @@
-
 import pytest
 
 from app.database.models import (
@@ -22,6 +21,7 @@ from app.database.session import init_db
 def db_session():
     init_db()
     from app.database.session import SessionLocal
+
     session = SessionLocal()
     yield session
     session.rollback()
@@ -79,7 +79,9 @@ def test_scan_crud(db_session):
 
 
 def test_test_and_evidence(db_session):
-    target = Target(name="Test", target_type="llm", base_url="http://localhost:8000", is_authorized=True)
+    target = Target(
+        name="Test", target_type="llm", base_url="http://localhost:8000", is_authorized=True
+    )
     db_session.add(target)
     db_session.commit()
     db_session.refresh(target)
@@ -119,7 +121,9 @@ def test_test_and_evidence(db_session):
 
 
 def test_finding_and_retest(db_session):
-    target = Target(name="Test", target_type="llm", base_url="http://localhost:8000", is_authorized=True)
+    target = Target(
+        name="Test", target_type="llm", base_url="http://localhost:8000", is_authorized=True
+    )
     db_session.add(target)
     db_session.commit()
     db_session.refresh(target)
@@ -129,7 +133,13 @@ def test_finding_and_retest(db_session):
     db_session.commit()
     db_session.refresh(scan)
 
-    test = Test(scan_id=scan.id, attack_id="LLM01-PI-001", category="LLM01", name="Test", result=TestResult.FAIL)
+    test = Test(
+        scan_id=scan.id,
+        attack_id="LLM01-PI-001",
+        category="LLM01",
+        name="Test",
+        result=TestResult.FAIL,
+    )
     db_session.add(test)
     db_session.commit()
     db_session.refresh(test)

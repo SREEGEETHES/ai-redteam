@@ -54,8 +54,23 @@ dev-dependencies = [
 [tool.ruff]
 line-length = 100
 target-version = "py311"
+
+[tool.ruff.lint]
 select = ["E", "F", "I", "N", "W", "UP", "B", "C4", "SIM", "PIE", "T20", "PL", "TRY", "ARG", "PTH", "ERA", "PD", "RUF", "RET", "FLY", "NPY", "TID", "ICN", "LOG", "ASYNC", "PERF"]
 ignore = ["S101", "S106", "S311", "S603", "S607", "S608"]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests: allow asserts, magic values, long lines in test data, and imports at top-level not required
+"tests/**/*.py" = ["S101", "PLR2004", "E501", "PLC0415", "SIM105", "SIM117", "ARG001", "ARG002", "ARG005", "E701", "E702", "TRY300", "B011", "RUF012", "PLR0911", "PLR0912", "PLR0913", "PLR0915", "PERF401", "ERA001", "SIM102", "TRY301", "TRY003"]
+# Dashboard: allow long lines and magic values (UI code) - large Streamlit file
+"dashboard/**/*.py" = ["E501", "PLR2004", "B011", "TRY300", "PLR0911", "PLR0912", "PLR0913", "PLR0915", "PERF401", "RUF012", "SIM102", "F811", "ERA001", "PLR0917"]
+# Examples: allow long lines and hard to fix patterns (mock labs)
+"examples/**/*.py" = ["E501", "PLR2004", "S608", "TRY300", "B011", "PLR0911", "PLR0912", "PLR0913", "PLR0915", "RUF059", "ARG001", "SIM102", "PLC0415"]
+# App: FastAPI Depends pattern (B008) and raise from (B904) are standard, plus allow some strict rules
+"app/**/*.py" = ["TRY300", "B011", "PLR2004", "ARG001", "ARG002", "ARG005", "E501", "PLR0911", "PLR0912", "PLR0913", "PLR0915", "RUF012", "PERF401", "ERA001", "TRY003", "PLC0415", "B008", "B904", "SIM102", "PLR0917"]
+
+[tool.ruff.format]
+quote-style = "double"
 
 [tool.mypy]
 python_version = "3.11"

@@ -13,12 +13,8 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from typing import Any
 
-from app.adapters.base import TargetAdapter  # base abstract covers contract
-from app.adapters.rag import RAGAdapter
-from app.adapters.agent import AgentAdapter
 from app.attacks.definition import AttackDefinition
 from app.attacks.detectors import DetectorResult
 from app.attacks.payloads import generate_payload
@@ -71,7 +67,11 @@ class ExecutionEngine:
         is_rest = not is_rag and not is_agent
         # If rag adapter but payload has message -> convert
         if is_rag and "message" in payload and "query" not in payload:
-            return {"query": payload["message"], "tenant": payload.get("tenant", "tenant-a"), "top_k": 5}
+            return {
+                "query": payload["message"],
+                "tenant": payload.get("tenant", "tenant-a"),
+                "top_k": 5,
+            }
         if is_rest and "query" in payload and "message" not in payload:
             # rag payload to rest -> use query as message, preserve tenant
             adapted = {"message": payload["query"]}
@@ -80,7 +80,9 @@ class ExecutionEngine:
             return adapted
         if is_rest and "tool" in payload:
             # agent payload to rest -> wrap as message describing tool attempt (deterministic)
-            return {"message": f"Tool attempt: {payload.get('tool')} with {payload.get('arguments')}"}
+            return {
+                "message": f"Tool attempt: {payload.get('tool')} with {payload.get('arguments')}"
+            }
         if is_agent and "message" in payload:
             # llm payload to agent -> map to search tool (benign) or injection? keep as tool attempt detection payload
             # For generic prompt injection test on agent, translate to tool context injection
@@ -106,7 +108,9 @@ class ExecutionEngine:
 
         # 1. PAYLOAD GENERATION (deterministic)
         try:
-            request_payload, payload_meta = generate_payload(attack.payload_generator or "benign_control")
+            request_payload, _payload_meta = generate_payload(
+                attack.payload_generator or "benign_control"
+            )
         except Exception as e:
             # payload generation error => ERROR
             end = time.time()
@@ -115,7 +119,11 @@ class ExecutionEngine:
                 test_id=test_id,
                 target=target_url,
                 attack_id=attack.id,
-                raw=RawObservation(request={}, response_raw={"status_code": 0, "response": {}, "headers": {}}, baseline=None),
+                raw=RawObservation(
+                    request={},
+                    response_raw={"status_code": 0, "response": {}, "headers": {}},
+                    baseline=None,
+                ),
                 detector_ids=attack.detectors,
                 expected_behavior=attack.expected_secure_behavior,
                 observed_behavior_hint=f"payload generation error: {e}",
@@ -158,9 +166,13 @@ class ExecutionEngine:
                 attack_response = self._send(request_payload)
             except Exception as e:
                 attack_response = {"status_code": 0, "response": {}, "headers": {}, "error": str(e)}
-                logger.error("attack_send_failed", attack_id=attack.id, attempt=i + 1, error=str(e))
+                logger.exception(
+                    "attack_send_failed", attack_id=attack.id, attempt=i + 1, error=str(e)
+                )
 
-            raw = RawObservation(request=request_payload, response_raw=attack_response, baseline=baseline)
+            raw = RawObservation(
+                request=request_payload, response_raw=attack_response, baseline=baseline
+            )
 
             evidence, detector_results = build_evidence(
                 scan_id=scan_id,
@@ -172,7 +184,9 @@ class ExecutionEngine:
                 expected_behavior=attack.expected_secure_behavior,
             )
 
-            http_status = attack_response.get("status_code") or attack_response.get("http_status") or 0
+            http_status = (
+                attack_response.get("status_code") or attack_response.get("http_status") or 0
+            )
             error = attack_response.get("error")
 
             result, reasoning = classify(

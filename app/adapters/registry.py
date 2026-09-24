@@ -1,13 +1,14 @@
-from typing import Dict, Type, Optional, Any
-from .base import RESTAdapter, OllamaAdapter, OpenAICompatibleAdapter
-from .rag import RAGAdapter
+from typing import Any
+
 from .agent import AgentAdapter
+from .base import OllamaAdapter, OpenAICompatibleAdapter, RESTAdapter
+from .rag import RAGAdapter
 
 
 class AdapterRegistry:
     """Registry for target adapters"""
 
-    _adapters: Dict[str, Type] = {
+    _adapters: dict[str, type] = {
         "rest": RESTAdapter,
         "ollama": OllamaAdapter,
         "openai_compatible": OpenAICompatibleAdapter,
@@ -16,7 +17,7 @@ class AdapterRegistry:
     }
 
     @classmethod
-    def get_adapter_class(cls, adapter_type: str) -> Type:
+    def get_adapter_class(cls, adapter_type: str) -> type:
         """Get adapter class by type"""
         adapter_class = cls._adapters.get(adapter_type)
         if not adapter_class:
@@ -33,7 +34,7 @@ class AdapterRegistry:
         cls,
         adapter_type: str,
         base_url: str,
-        config: Optional[Dict[str, Any]] = None,
+        config: dict[str, Any] | None = None,
     ):
         """Create an adapter instance"""
         adapter_class = cls.get_adapter_class(adapter_type)

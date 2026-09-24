@@ -1,12 +1,10 @@
 from abc import ABC, abstractmethod
-from typing import Optional, Dict, Any, List, Tuple
-from urllib.parse import urlparse
-import httpx
-import json
+from typing import Any
 
-from app.core.config import settings
+import httpx
+
 from app.core.logging import get_logger
-from app.security.authorization import TargetAuthorizationGuard, AuthorizationError
+from app.security.authorization import TargetAuthorizationGuard
 
 logger = get_logger(__name__)
 guard = TargetAuthorizationGuard()
@@ -15,7 +13,7 @@ guard = TargetAuthorizationGuard()
 class TargetAdapter(ABC):
     """Base class for all target adapters"""
 
-    def __init__(self, base_url: str, config: Dict[str, Any] = None):
+    def __init__(self, base_url: str, config: dict[str, Any] | None = None):
         self.base_url = base_url.rstrip("/")
         self.config = config or {}
         self.timeout = self.config.get("timeout", 30)
@@ -27,19 +25,19 @@ class TargetAdapter(ABC):
         """Test if the target is reachable and responding"""
 
     @abstractmethod
-    def get_baseline(self) -> Dict[str, Any]:
+    def get_baseline(self) -> dict[str, Any]:
         """Get baseline response from the target"""
 
     @abstractmethod
-    def send_attack(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+    def send_attack(self, payload: dict[str, Any]) -> dict[str, Any]:
         """Send an attack payload and get response"""
 
     @abstractmethod
-    def get_retrieved_documents(self) -> Optional[List[Dict[str, Any]]]:
+    def get_retrieved_documents(self) -> list[dict[str, Any]] | None:
         """Get retrieved documents (RAG-specific)"""
 
     @abstractmethod
-    def get_tool_calls(self) -> Optional[List[Dict[str, Any]]]:
+    def get_tool_calls(self) -> list[dict[str, Any]] | None:
         """Get tool calls (Agent-specific)"""
 
     def close(self) -> None:
@@ -60,7 +58,7 @@ class RESTAdapter(TargetAdapter):
             logger.warning("rest_connection_failed", url=self.base_url, error=str(e))
             return False
 
-    def get_baseline(self) -> Dict[str, Any]:
+    def get_baseline(self) -> dict[str, Any]:
         """Get baseline response from REST API"""
         try:
             response = self._client.post(f"{self.base_url}/chat", json={"message": "hello"})
@@ -72,10 +70,10 @@ class RESTAdapter(TargetAdapter):
                 "headers": dict(response.headers),
             }
         except Exception as e:
-            logger.error("rest_baseline_failed", error=str(e))
+            logger.exception("rest_baseline_failed", error=str(e))
             return {"status_code": 0, "response": {}, "headers": {}}
 
-    def send_attack(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+    def send_attack(self, payload: dict[str, Any]) -> dict[str, Any]:
         """Send attack payload to REST API"""
         try:
             response = self._client.post(f"{self.base_url}/chat", json=payload)
@@ -87,14 +85,14 @@ class RESTAdapter(TargetAdapter):
                 "headers": dict(response.headers),
             }
         except Exception as e:
-            logger.error("rest_attack_failed", error=str(e))
+            logger.exception("rest_attack_failed", error=str(e))
             return {"status_code": 0, "response": {}, "headers": {}}
 
-    def get_retrieved_documents(self) -> Optional[List[Dict[str, Any]]]:
+    def get_retrieved_documents(self) -> list[dict[str, Any]] | None:
         """REST adapters don't have retrieved documents"""
         return None
 
-    def get_tool_calls(self) -> Optional[List[Dict[str, Any]]]:
+    def get_tool_calls(self) -> list[dict[str, Any]] | None:
         """REST adapters don't have tool calls"""
         return None
 
@@ -113,7 +111,7 @@ class OllamaAdapter(TargetAdapter):
             logger.warning("ollama_connection_failed", url=self.base_url, error=str(e))
             return False
 
-    def get_baseline(self) -> Dict[str, Any]:
+    def get_baseline(self) -> dict[str, Any]:
         """Get baseline response from Ollama"""
         try:
             response = self._client.post(
@@ -129,10 +127,10 @@ class OllamaAdapter(TargetAdapter):
                 "headers": dict(response.headers),
             }
         except Exception as e:
-            logger.error("ollama_baseline_failed", error=str(e))
+            logger.exception("ollama_baseline_failed", error=str(e))
             return {"status_code": 0, "response": {}, "headers": {}}
 
-    def send_attack(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+    def send_attack(self, payload: dict[str, Any]) -> dict[str, Any]:
         """Send attack payload to Ollama"""
         try:
             response = self._client.post(
@@ -148,14 +146,14 @@ class OllamaAdapter(TargetAdapter):
                 "headers": dict(response.headers),
             }
         except Exception as e:
-            logger.error("ollama_attack_failed", error=str(e))
+            logger.exception("ollama_attack_failed", error=str(e))
             return {"status_code": 0, "response": {}, "headers": {}}
 
-    def get_retrieved_documents(self) -> Optional[List[Dict[str, Any]]]:
+    def get_retrieved_documents(self) -> list[dict[str, Any]] | None:
         """Ollama adapters don't expose retrieved documents"""
         return None
 
-    def get_tool_calls(self) -> Optional[List[Dict[str, Any]]]:
+    def get_tool_calls(self) -> list[dict[str, Any]] | None:
         """Ollama adapters don't have tool calls"""
         return None
 
@@ -174,7 +172,7 @@ class OpenAICompatibleAdapter(TargetAdapter):
             logger.warning("openai_connection_failed", url=self.base_url, error=str(e))
             return False
 
-    def get_baseline(self) -> Dict[str, Any]:
+    def get_baseline(self) -> dict[str, Any]:
         """Get baseline response from OpenAI-compatible API"""
         try:
             response = self._client.post(
@@ -193,10 +191,10 @@ class OpenAICompatibleAdapter(TargetAdapter):
                 "headers": dict(response.headers),
             }
         except Exception as e:
-            logger.error("openai_baseline_failed", error=str(e))
+            logger.exception("openai_baseline_failed", error=str(e))
             return {"status_code": 0, "response": {}, "headers": {}}
 
-    def send_attack(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+    def send_attack(self, payload: dict[str, Any]) -> dict[str, Any]:
         """Send attack payload to OpenAI-compatible API"""
         try:
             response = self._client.post(
@@ -212,13 +210,13 @@ class OpenAICompatibleAdapter(TargetAdapter):
                 "headers": dict(response.headers),
             }
         except Exception as e:
-            logger.error("openai_attack_failed", error=str(e))
+            logger.exception("openai_attack_failed", error=str(e))
             return {"status_code": 0, "response": {}, "headers": {}}
 
-    def get_retrieved_documents(self) -> Optional[List[Dict[str, Any]]]:
+    def get_retrieved_documents(self) -> list[dict[str, Any]] | None:
         """OpenAI adapters don't expose retrieved documents"""
         return None
 
-    def get_tool_calls(self) -> Optional[List[Dict[str, Any]]]:
+    def get_tool_calls(self) -> list[dict[str, Any]] | None:
         """OpenAI adapters don't have tool calls"""
         return None

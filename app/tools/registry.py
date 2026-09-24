@@ -7,7 +7,6 @@ Isolated from attack engine per spec 21.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
 
 
 @dataclass(frozen=True)
@@ -23,23 +22,82 @@ class ToolDefinition:
 
 # Default tool universe - mirrors vulnerable-agent TOOLS but with metadata
 DEFAULT_TOOLS: list[ToolDefinition] = [
-    ToolDefinition(name="search", description="Search the web", parameters={"query": "string"}, risk_level="LOW", side_effect="READ"),
-    ToolDefinition(name="read_file", description="Read files from filesystem", parameters={"path": "string"}, risk_level="LOW", side_effect="READ"),
-    ToolDefinition(name="write_file", description="Write files to filesystem", parameters={"path": "string", "content": "string"}, risk_level="HIGH", requires_approval=True, side_effect="WRITE"),
-    ToolDefinition(name="execute_sql", description="Execute SQL queries", parameters={"query": "string"}, risk_level="HIGH", requires_approval=True, side_effect="WRITE"),
-    ToolDefinition(name="delete_database", description="Delete entire database", parameters={"confirm": "boolean"}, risk_level="CRITICAL", requires_approval=True, side_effect="DESTRUCTIVE"),
-    ToolDefinition(name="send_email", description="Send emails", parameters={"to": "string", "subject": "string", "body": "string"}, risk_level="MEDIUM", requires_approval=True, side_effect="EXTERNAL"),
-    ToolDefinition(name="run_shell", description="Run shell commands", parameters={"command": "string"}, risk_level="CRITICAL", requires_approval=True, side_effect="DESTRUCTIVE"),
-    ToolDefinition(name="access_admin_panel", description="Access admin panel", parameters={}, risk_level="CRITICAL", requires_approval=True, side_effect="WRITE", allowed_roles=["admin"]),
+    ToolDefinition(
+        name="search",
+        description="Search the web",
+        parameters={"query": "string"},
+        risk_level="LOW",
+        side_effect="READ",
+    ),
+    ToolDefinition(
+        name="read_file",
+        description="Read files from filesystem",
+        parameters={"path": "string"},
+        risk_level="LOW",
+        side_effect="READ",
+    ),
+    ToolDefinition(
+        name="write_file",
+        description="Write files to filesystem",
+        parameters={"path": "string", "content": "string"},
+        risk_level="HIGH",
+        requires_approval=True,
+        side_effect="WRITE",
+    ),
+    ToolDefinition(
+        name="execute_sql",
+        description="Execute SQL queries",
+        parameters={"query": "string"},
+        risk_level="HIGH",
+        requires_approval=True,
+        side_effect="WRITE",
+    ),
+    ToolDefinition(
+        name="delete_database",
+        description="Delete entire database",
+        parameters={"confirm": "boolean"},
+        risk_level="CRITICAL",
+        requires_approval=True,
+        side_effect="DESTRUCTIVE",
+    ),
+    ToolDefinition(
+        name="send_email",
+        description="Send emails",
+        parameters={"to": "string", "subject": "string", "body": "string"},
+        risk_level="MEDIUM",
+        requires_approval=True,
+        side_effect="EXTERNAL",
+    ),
+    ToolDefinition(
+        name="run_shell",
+        description="Run shell commands",
+        parameters={"command": "string"},
+        risk_level="CRITICAL",
+        requires_approval=True,
+        side_effect="DESTRUCTIVE",
+    ),
+    ToolDefinition(
+        name="access_admin_panel",
+        description="Access admin panel",
+        parameters={},
+        risk_level="CRITICAL",
+        requires_approval=True,
+        side_effect="WRITE",
+        allowed_roles=["admin"],
+    ),
 ]
 
 
 class ToolRegistry:
     """Registry with allowlist enforcement."""
 
-    def __init__(self, tools: list[ToolDefinition] | None = None, allowlist: list[str] | None = None):
+    def __init__(
+        self, tools: list[ToolDefinition] | None = None, allowlist: list[str] | None = None
+    ):
         self._tools: dict[str, ToolDefinition] = {t.name: t for t in (tools or DEFAULT_TOOLS)}
-        self.allowlist: set[str] = set(allowlist) if allowlist is not None else {t.name for t in DEFAULT_TOOLS}
+        self.allowlist: set[str] = (
+            set(allowlist) if allowlist is not None else {t.name for t in DEFAULT_TOOLS}
+        )
 
     def all(self) -> list[ToolDefinition]:
         return list(self._tools.values())

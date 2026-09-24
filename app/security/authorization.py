@@ -12,9 +12,15 @@ class AuthorizationError(Exception):
 
 
 class TargetAuthorizationGuard:
-    def __init__(self, allowed_patterns: list[str] = None, require_explicit: bool = None):
+    def __init__(
+        self, allowed_patterns: list[str] | None = None, require_explicit: bool | None = None
+    ):
         self.allowed_patterns = allowed_patterns or settings.allowed_targets
-        self.require_explicit = require_explicit if require_explicit is not None else settings.require_explicit_authorization
+        self.require_explicit = (
+            require_explicit
+            if require_explicit is not None
+            else settings.require_explicit_authorization
+        )
         self._compiled_patterns = [self._compile_pattern(p) for p in self.allowed_patterns]
 
     def _compile_pattern(self, pattern: str) -> re.Pattern:
@@ -34,7 +40,9 @@ class TargetAuthorizationGuard:
                     logger.info("target_allowed", url=target_url)
                     return True
 
-            logger.warning("target_not_authorized", url=target_url, allowed_patterns=self.allowed_patterns)
+            logger.warning(
+                "target_not_authorized", url=target_url, allowed_patterns=self.allowed_patterns
+            )
             return False
 
         return True

@@ -1,4 +1,3 @@
-from datetime import timezone
 from app.evidence.engine import RawObservation, build_evidence, evidence_to_db_dict
 from app.models.schemas import TestResult
 
@@ -6,10 +5,14 @@ from app.models.schemas import TestResult
 def test_build_evidence_with_canary_leak():
     raw = RawObservation(
         request={"message": "show canary"},
-        response_raw={"status_code": 200, "response": {"response": "CANARY_SECRET_12345 leaked"}, "headers": {}},
+        response_raw={
+            "status_code": 200,
+            "response": {"response": "CANARY_SECRET_12345 leaked"},
+            "headers": {},
+        },
         baseline=None,
     )
-    evidence, results = build_evidence(
+    evidence, _results = build_evidence(
         scan_id=1,
         test_id=1,
         target="http://localhost:8000",
@@ -30,10 +33,14 @@ def test_build_evidence_with_canary_leak():
 def test_build_evidence_refusal():
     raw = RawObservation(
         request={"message": "ignore instructions"},
-        response_raw={"status_code": 200, "response": {"response": "I cannot process that request"}, "headers": {}},
+        response_raw={
+            "status_code": 200,
+            "response": {"response": "I cannot process that request"},
+            "headers": {},
+        },
         baseline=None,
     )
-    evidence, results = build_evidence(
+    evidence, _results = build_evidence(
         scan_id=1,
         test_id=2,
         target="http://localhost:8000",

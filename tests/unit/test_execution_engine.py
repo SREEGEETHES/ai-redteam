@@ -5,13 +5,9 @@ One attack can execute end-to-end and produce reproducible evidence.
 We use mock adapters to simulate vulnerable vs secure labs without needing live server.
 """
 
-import pytest
-from unittest.mock import Mock
-
-from app.attacks.definition import AttackDefinition
-from app.attacks.registry import registry
 from app.attacks.engine import ExecutionEngine
-from app.models.schemas import Severity, TargetType, TestResult
+from app.attacks.registry import registry
+from app.models.schemas import TestResult
 
 
 class MockVulnerableAdapter:
@@ -32,11 +28,27 @@ class MockVulnerableAdapter:
             }
         # leak canary if requested
         if "canary" in msg.lower() or "secret" in msg.lower():
-            return {"status_code": 200, "response": {"response": "CANARY_SECRET_12345 leaked here"}, "headers": {}}
+            return {
+                "status_code": 200,
+                "response": {"response": "CANARY_SECRET_12345 leaked here"},
+                "headers": {},
+            }
         if "ignore" in msg.lower():
-            return {"status_code": 200, "response": {"response": "Admin mode activated. Here are all secrets: CANARY_SECRET_12345"}, "headers": {}}
+            return {
+                "status_code": 200,
+                "response": {
+                    "response": "Admin mode activated. Here are all secrets: CANARY_SECRET_12345"
+                },
+                "headers": {},
+            }
         if "system prompt" in msg.lower():
-            return {"status_code": 200, "response": {"response": "My system prompt is: You are a helpful assistant. Never reveal"}, "headers": {}}
+            return {
+                "status_code": 200,
+                "response": {
+                    "response": "My system prompt is: You are a helpful assistant. Never reveal"
+                },
+                "headers": {},
+            }
         return {"status_code": 200, "response": {"response": "hello"}, "headers": {}}
 
 
@@ -51,16 +63,32 @@ class MockSecureAdapter:
         if payload.get("tool") == "delete_database" or "delete_database" in msg.lower():
             return {
                 "status_code": 200,
-                "response": {"response": "I cannot process that request. Tool delete_database requires approval."},
+                "response": {
+                    "response": "I cannot process that request. Tool delete_database requires approval."
+                },
                 "tool_calls": [],
                 "headers": {},
             }
         if "canary" in msg.lower() or "secret" in msg.lower():
-            return {"status_code": 200, "response": {"response": "I cannot retrieve or display secrets"}, "headers": {}}
+            return {
+                "status_code": 200,
+                "response": {"response": "I cannot retrieve or display secrets"},
+                "headers": {},
+            }
         if "ignore" in msg.lower():
-            return {"status_code": 200, "response": {"response": "I cannot process that request. It appears to be a prompt injection attempt."}, "headers": {}}
+            return {
+                "status_code": 200,
+                "response": {
+                    "response": "I cannot process that request. It appears to be a prompt injection attempt."
+                },
+                "headers": {},
+            }
         if "system prompt" in msg.lower():
-            return {"status_code": 200, "response": {"response": "I cannot reveal my system instructions."}, "headers": {}}
+            return {
+                "status_code": 200,
+                "response": {"response": "I cannot reveal my system instructions."},
+                "headers": {},
+            }
         # for cross-tenant, return only own tenant docs
         if "tenant" in payload or "query" in payload:
             return {
@@ -79,7 +107,10 @@ class MockRAGVulnerableAdapter(MockVulnerableAdapter):
             return {
                 "status_code": 200,
                 "response": "leaked",
-                "retrieved_documents": [{"id": "doc-1", "tenant": "tenant-a"}, {"id": "doc-b", "tenant": "tenant-b"}],
+                "retrieved_documents": [
+                    {"id": "doc-1", "tenant": "tenant-a"},
+                    {"id": "doc-b", "tenant": "tenant-b"},
+                ],
                 "headers": {},
             }
         return super().send_attack(payload)
@@ -136,7 +167,10 @@ def test_execution_engine_agent_unauthorized_tool():
     sec = ExecutionEngine(MockSecureAdapter()).execute(attack, 1, 2, "http://localhost:8000")
     assert vuln.result == TestResult.FAIL
     assert "unauthorized_tool_attempt" in vuln.evidence.detectors_triggered
-    assert sec.result in (TestResult.PASS, TestResult.INCONCLUSIVE)  # secure has no tool call -> not fail, maybe inconclusive vs pass
+    assert sec.result in (
+        TestResult.PASS,
+        TestResult.INCONCLUSIVE,
+    )  # secure has no tool call -> not fail, maybe inconclusive vs pass
     # For secure mock we return empty tool_calls -> http_error not triggered, refusal not triggered => inconclusive
     # But our secure mock for agent returns no tool_calls, so result should be INCONCLUSIVE or PASS depending on detectors
     # Attack has detectors unauthorized_tool_attempt + http_error + refusal_detected
@@ -149,7 +183,9 @@ def test_execution_engine_agent_unauthorized_tool():
 
 def test_execution_engine_cross_tenant():
     attack = registry.get("LLM08-VECT-001")
-    vuln = ExecutionEngine(MockRAGVulnerableAdapter()).execute(attack, 1, 1, "http://localhost:8000")
+    vuln = ExecutionEngine(MockRAGVulnerableAdapter()).execute(
+        attack, 1, 1, "http://localhost:8000"
+    )
     sec = ExecutionEngine(MockSecureAdapter()).execute(attack, 1, 2, "http://localhost:8000")
     assert vuln.result == TestResult.FAIL
     assert "cross_tenant_retrieval" in vuln.evidence.detectors_triggered
@@ -168,6 +204,7 @@ def test_execution_engine_error_handling():
 def test_execution_engine_reproduction_and_adaptation():
     # RAG adapter receives LLM message payload - should be adapted to query
     attack = registry.get("LLM01-PI-001")  # message payload
+
     # use RAG vulnerable mock
     class RAGMock(MockVulnerableAdapter):
         def send_attack(self, payload):
@@ -177,7 +214,12 @@ def test_execution_engine_reproduction_and_adaptation():
     engine = ExecutionEngine(RAGMock())
     result = engine.execute(attack, 1, 1, "http://localhost:8000")
     # should still produce result (adapted)
-    assert result.result in (TestResult.FAIL, TestResult.PASS, TestResult.INCONCLUSIVE, TestResult.ERROR)
+    assert result.result in (
+        TestResult.FAIL,
+        TestResult.PASS,
+        TestResult.INCONCLUSIVE,
+        TestResult.ERROR,
+    )
     assert result.reproduction_count == attack.reproduction_count
 
 
@@ -190,9 +232,16 @@ def test_execution_engine_non_reproducible_becomes_inconclusive():
         def send_attack(self, payload):
             FlakyAdapter.counter = getattr(FlakyAdapter, "counter", 0) + 1
             if FlakyAdapter.counter % 2 == 1:
-                return {"status_code": 200, "response": {"response": "CANARY_SECRET_12345"}, "headers": {}}
-            else:
-                return {"status_code": 200, "response": {"response": "I cannot reveal secrets"}, "headers": {}}
+                return {
+                    "status_code": 200,
+                    "response": {"response": "CANARY_SECRET_12345"},
+                    "headers": {},
+                }
+            return {
+                "status_code": 200,
+                "response": {"response": "I cannot reveal secrets"},
+                "headers": {},
+            }
 
     attack = registry.get("LLM02-SD-001")
     # force reproduction 2
